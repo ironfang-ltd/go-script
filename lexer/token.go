@@ -1,0 +1,63 @@
+package lexer
+
+type TokenType string
+
+const (
+	None           TokenType = "NONE"
+	EndOfFile      TokenType = "EOF"
+	Whitespace     TokenType = "WHITESPACE"
+	NewLine        TokenType = "NEWLINE"
+	Tab            TokenType = "TAB"
+	Identifier     TokenType = "IDENTIFIER"
+	String         TokenType = "STRING"
+	LeftParen      TokenType = "LEFT_PAREN"
+	RightParen     TokenType = "RIGHT_PAREN"
+	LeftBrace      TokenType = "LEFT_BRACE"
+	RightBrace     TokenType = "RIGHT_BRACE"
+	LeftBracket    TokenType = "LEFT_BRACKET"
+	RightBracket   TokenType = "RIGHT_BRACKET"
+	Comma          TokenType = "COMMA"
+	Colon          TokenType = "COLON"
+	Semicolon      TokenType = "SEMICOLON"
+	Integer        TokenType = "INTEGER"
+	Float          TokenType = "FLOAT"
+	Plus           TokenType = "PLUS"
+	Minus          TokenType = "MINUS"
+	Asterisk       TokenType = "ASTERISK"
+	Dot            TokenType = "DOT"
+	Slash          TokenType = "SLASH"
+	Equal          TokenType = "EQUAL"
+	Equals         TokenType = "EQUALS"
+	NotEqual       TokenType = "NOT_EQUAL"
+	LessThan       TokenType = "LESS_THAN"
+	GreaterThan    TokenType = "GREATER_THAN"
+	LessOrEqual    TokenType = "LESS_OR_EQUAL"
+	GreaterOrEqual TokenType = "GREATER_OR_EQUAL"
+	Function       TokenType = "FUNCTION"
+	Let            TokenType = "LET"
+	Return         TokenType = "RETURN"
+	True           TokenType = "TRUE"
+	False          TokenType = "FALSE"
+	If             TokenType = "IF"
+	Else           TokenType = "ELSE"
+	For            TokenType = "FOR"
+	Bang           TokenType = "BANG"
+)
+
+var TokenNone = NewToken(None, "", 0, 0)
+
+type Token struct {
+	Type   TokenType
+	Source string
+	Line   int
+	Col    int
+}
+
+func NewToken(typ TokenType, source string, line, col int) Token {
+	return Token{
+		Type:   typ,
+		Source: source,
+		Line:   line,
+		Col:    col,
+	}
+}
