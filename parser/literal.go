@@ -1,6 +1,9 @@
 package parser
 
-import "github.com/ironfang-ltd/ironscript/lexer"
+import (
+	"github.com/ironfang-ltd/ironscript/lexer"
+	"strings"
+)
 
 type IntegerLiteral struct {
 	Token lexer.Token
@@ -37,7 +40,20 @@ type FunctionLiteral struct {
 }
 
 func (fl *FunctionLiteral) Debug() string {
-	return fl.Token.Source + " " + fl.Identifier.Value + "(" + fl.Parameters[0].Value + ") " + fl.Body.Debug()
+	var sb strings.Builder
+	sb.WriteString(fl.Token.Source)
+	sb.WriteString(" ")
+	sb.WriteString(fl.Identifier.Value)
+	sb.WriteString("(")
+	for i, p := range fl.Parameters {
+		sb.WriteString(p.Value)
+		if i < len(fl.Parameters)-1 {
+			sb.WriteString(", ")
+		}
+	}
+	sb.WriteString(") \n")
+	sb.WriteString(fl.Body.Debug())
+	return sb.String()
 }
 
 type ArrayLiteral struct {

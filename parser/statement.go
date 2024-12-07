@@ -39,9 +39,9 @@ type BlockStatement struct {
 }
 
 func (bs *BlockStatement) Debug() string {
-	str := "{"
+	str := "{\n"
 	for _, s := range bs.Statements {
-		str += s.Debug() + ";"
+		str += "    " + s.Debug() + "\n"
 	}
 	str += "}"
 	return str

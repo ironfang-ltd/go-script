@@ -26,7 +26,7 @@ func (l *Lexer) Read() (Token, error) {
 		l.consumeWhitespace()
 
 		if l.position >= len(l.source) {
-			return NewToken(EndOfFile, "", l.line, l.col), nil
+			return NewToken(EndOfFile, "", l.position, l.line, l.col), nil
 		}
 
 		if l.source[l.position] == '\n' {
@@ -161,13 +161,17 @@ func (l *Lexer) Read() (Token, error) {
 		}
 
 		if l.tryIdentifier() {
-			return NewToken(Identifier, l.source[pos:l.position], line, col), nil
+			return NewToken(Identifier, l.source[pos:l.position], pos, line, col), nil
 		}
 
 		break
 	}
 
 	return Token{}, fmt.Errorf("unexpected character '%c' at line %d, col %d", l.source[l.position], l.line, l.col)
+}
+
+func (l *Lexer) GetSource() string {
+	return l.source
 }
 
 func (l *Lexer) consumeWhitespace() {
@@ -186,7 +190,7 @@ func (l *Lexer) trySingle(c byte, tokenType TokenType) (Token, bool) {
 	if l.source[l.position] == c {
 		l.position++
 		l.col++
-		return NewToken(tokenType, l.source[pos:l.position], col, line), true
+		return NewToken(tokenType, l.source[pos:l.position], pos, line, col), true
 	}
 
 	return TokenNone, false
@@ -201,7 +205,7 @@ func (l *Lexer) trySequence(seq string, tokenType TokenType) (Token, bool) {
 	if strings.HasPrefix(l.source[l.position:], seq) {
 		l.position += len(seq)
 		l.col += len(seq)
-		return NewToken(tokenType, l.source[pos:l.position], col, line), true
+		return NewToken(tokenType, l.source[pos:l.position], pos, line, col), true
 	}
 
 	return TokenNone, false
@@ -242,7 +246,7 @@ func (l *Lexer) tryNumber() (Token, bool) {
 		return Token{}, false
 	}
 
-	return NewToken(tokenType, l.source[pos:l.position], line, col), true
+	return NewToken(tokenType, l.source[pos:l.position], pos, line, col), true
 }
 
 func (l *Lexer) tryIdentifier() bool {

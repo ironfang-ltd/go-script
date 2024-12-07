@@ -44,20 +44,22 @@ const (
 	Bang           TokenType = "BANG"
 )
 
-var TokenNone = NewToken(None, "", 0, 0)
+var TokenNone = NewToken(None, "", 0, 0, 0)
 
 type Token struct {
-	Type   TokenType
-	Source string
-	Line   int
-	Col    int
+	Type     TokenType
+	Source   string
+	Position int
+	Line     int
+	Column   int
 }
 
-func NewToken(typ TokenType, source string, line, col int) Token {
+func NewToken(typ TokenType, source string, position, line, column int) Token {
 	return Token{
-		Type:   typ,
-		Source: source,
-		Line:   line,
-		Col:    col,
+		Type:     typ,
+		Source:   source,
+		Position: position,
+		Line:     line,
+		Column:   column,
 	}
 }

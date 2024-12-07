@@ -33,8 +33,11 @@ type CallExpression struct {
 
 func (ce *CallExpression) Debug() string {
 	args := ""
-	for _, arg := range ce.Args {
-		args += arg.Debug() + ","
+	for i, arg := range ce.Args {
+		args += arg.Debug()
+		if i < len(ce.Args)-1 {
+			args += ", "
+		}
 	}
 	return ce.Function.Debug() + "(" + args + ")"
 }

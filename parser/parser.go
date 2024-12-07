@@ -31,7 +31,7 @@ type Program struct {
 func (p *Program) Debug() string {
 	str := ""
 	for _, s := range p.Statements {
-		str += s.Debug() + ";"
+		str += s.Debug() + "\n"
 	}
 	return str
 }
@@ -51,28 +51,14 @@ func New(l *lexer.Lexer) *Parser {
 
 func (p *Parser) Parse() (*Program, error) {
 
-	current, err := p.l.Read()
-	if err != nil {
-		return nil, err
-	}
-
-	next, err := p.l.Read()
-	if err != nil {
-		return nil, err
-	}
-
-	p.current = &current
-	p.next = &next
+	p.nextToken()
+	p.nextToken()
 
 	t := &Program{}
 
 	for {
-		token, err := p.l.Read()
-		if err != nil {
-			break
-		}
 
-		if token.Type == lexer.EndOfFile {
+		if p.current.Type == lexer.EndOfFile {
 			break
 		}
 
@@ -82,12 +68,7 @@ func (p *Parser) Parse() (*Program, error) {
 	}
 
 	if len(p.errors) > 0 {
-		err := errors.New("parser errors")
-		for _, e := range p.errors {
-			err = fmt.Errorf("%s\n%s", err, e)
-		}
-
-		return nil, err
+		return nil, errors.Join(p.errors...)
 	}
 
 	return t, nil
@@ -171,6 +152,10 @@ func (p *Parser) parseExpressionStatement() *ExpressionStatement {
 		Expression: expression,
 	}
 
+	if _, ok := expression.(*FunctionLiteral); ok {
+		return statement
+	}
+
 	if !p.tryPeek(lexer.Semicolon) {
 		return nil
 	}
@@ -186,7 +171,7 @@ func (p *Parser) parseExpression(precedence int) Expression {
 	}
 
 	for {
-		if !p.tryPeek(lexer.Semicolon) && precedence < p.peekPrecedence() {
+		if p.next.Type == lexer.Semicolon || precedence >= p.peekPrecedence() {
 			return leftExpression
 		}
 
@@ -256,7 +241,8 @@ func (p *Parser) parsePrefixExpression() Expression {
 	case lexer.LeftBrace:
 		return p.parseHashLiteral()
 	default:
-		p.errors = append(p.errors, errors.New("expected prefix expression"))
+		p.errors = append(p.errors,
+			NewParseError(fmt.Sprintf("unexpected token %s", p.current.Type), p.l.GetSource(), p.current))
 		return nil
 	}
 }
@@ -279,7 +265,7 @@ func (p *Parser) parseInfixExpression(left Expression) Expression {
 
 	infix.Right = right
 
-	return nil
+	return infix
 }
 
 func (p *Parser) parseAccessExpression(left Expression) Expression {
@@ -465,7 +451,7 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 }
 
 func (p *Parser) parseFunctionParameters() []*Identifier {
-	identifiers := []*Identifier{}
+	var identifiers []*Identifier
 
 	if p.next.Type == lexer.RightParen {
 		p.nextToken()
@@ -520,7 +506,7 @@ func (p *Parser) parseFunctionLiteral() Expression {
 }
 
 func (p *Parser) parseExpressionList(end lexer.TokenType) []Expression {
-	list := []Expression{}
+	var list []Expression
 
 	if p.next.Type == end {
 		p.nextToken()
@@ -562,7 +548,9 @@ func (p *Parser) tryPeek(tokenToken lexer.TokenType) bool {
 		return true
 	}
 
-	p.errors = append(p.errors, fmt.Errorf("expected %s, got %s", tokenToken, p.next.Type))
+	p.errors = append(p.errors,
+		NewParseError(
+			fmt.Sprintf("expected %s, got %s", tokenToken, p.next.Type), p.l.GetSource(), p.next))
 
 	return false
 }
@@ -570,6 +558,7 @@ func (p *Parser) tryPeek(tokenToken lexer.TokenType) bool {
 func (p *Parser) nextToken() {
 
 	p.current = p.next
+
 	next, err := p.l.Read()
 	if err != nil {
 		return
