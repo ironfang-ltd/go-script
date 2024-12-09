@@ -28,6 +28,12 @@ type Program struct {
 	Statements []Statement
 }
 
+func NewProgram() *Program {
+	return &Program{
+		Statements: []Statement{},
+	}
+}
+
 func (p *Program) Debug() string {
 	str := ""
 	for _, s := range p.Statements {

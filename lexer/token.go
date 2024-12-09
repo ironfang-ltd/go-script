@@ -5,9 +5,6 @@ type TokenType string
 const (
 	None           TokenType = "NONE"
 	EndOfFile      TokenType = "EOF"
-	Whitespace     TokenType = "WHITESPACE"
-	NewLine        TokenType = "NEWLINE"
-	Tab            TokenType = "TAB"
 	Identifier     TokenType = "IDENTIFIER"
 	String         TokenType = "STRING"
 	LeftParen      TokenType = "LEFT_PAREN"
@@ -42,6 +39,10 @@ const (
 	Else           TokenType = "ELSE"
 	For            TokenType = "FOR"
 	Bang           TokenType = "BANG"
+	Foreach        TokenType = "FOREACH"
+	As             TokenType = "AS"
+	Text           TokenType = "TEXT"
+	Code           TokenType = "CODE"
 )
 
 var TokenNone = NewToken(None, "", 0, 0, 0)

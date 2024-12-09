@@ -4,17 +4,26 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="ccce9eb5-939a-4d1b-b101-1eab75580340" name="Changes" comment="fn parse fixed">
+    <list default="true" id="ccce9eb5-939a-4d1b-b101-1eab75580340" name="Changes" comment="evaluator wip">
+      <change afterPath="$PROJECT_DIR$/template/lexer.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/template/parser.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/evaluator/evaluator.go" beforeDir="false" afterPath="$PROJECT_DIR$/evaluator/evaluator.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lexer/token.go" beforeDir="false" afterPath="$PROJECT_DIR$/lexer/token.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/expression.go" beforeDir="false" afterPath="$PROJECT_DIR$/parser/expression.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/literal.go" beforeDir="false" afterPath="$PROJECT_DIR$/parser/literal.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parser/parser.go" beforeDir="false" afterPath="$PROJECT_DIR$/parser/parser.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
   </component>
   <component name="GOROOT" url="file://$PROJECT_DIR$/../../../go" />
   <component name="Git.Settings">
@@ -25,13 +34,17 @@
   &quot;associatedIndex&quot;: 8
 }</component>
   <component name="ProjectId" id="2ps0Yo6uTUJu31kuy2IdafKdy52" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "Go Build.go build github.com/ironfang-ltd/ironscript.executor": "Debug",
+    "DefaultGoTemplateProperty": "Go File",
+    "Go Build.go build github.com/ironfang-ltd/ironscript.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.go.formatter.settings.were.checked": "true",
@@ -76,7 +89,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="fn parse fixed" />
-    <option name="LAST_COMMIT_MESSAGE" value="fn parse fixed" />
+    <MESSAGE value="evaluator wip" />
+    <option name="LAST_COMMIT_MESSAGE" value="evaluator wip" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>

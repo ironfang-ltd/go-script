@@ -25,7 +25,7 @@ func (e *Evaluator) RegisterFunction(name string, fn Function) {
 }
 
 func (e *Evaluator) Evaluate(program *parser.Program, scope *Scope) (Object, error) {
-	var result Object
+	var result Object = Null
 
 	for _, statement := range program.Statements {
 		evalResult, err := e.evaluateNode(statement, scope)
