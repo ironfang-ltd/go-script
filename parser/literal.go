@@ -1,8 +1,9 @@
 package parser
 
 import (
-	"github.com/ironfang-ltd/ironscript/lexer"
 	"strings"
+
+	"github.com/ironfang-ltd/ironscript/lexer"
 )
 
 type IntegerLiteral struct {
@@ -63,4 +64,22 @@ type ArrayLiteral struct {
 
 func (al *ArrayLiteral) Debug() string {
 	return al.Token.Source
+}
+
+type HashLiteral struct {
+	Token lexer.Token
+	Pairs map[Expression]Expression
+}
+
+func (hl *HashLiteral) Debug() string {
+	var sb strings.Builder
+	sb.WriteString(hl.Token.Source)
+	sb.WriteString("{")
+	for k, v := range hl.Pairs {
+		sb.WriteString(k.Debug())
+		sb.WriteString(": ")
+		sb.WriteString(v.Debug())
+	}
+	sb.WriteString("}")
+	return sb.String()
 }

@@ -52,6 +52,16 @@ func (ie *InfixExpression) Debug() string {
 	return ie.Left.Debug() + " " + ie.Token.Source + " " + ie.Right.Debug()
 }
 
+type PrefixExpression struct {
+	Token    lexer.Token
+	Operator string
+	Right    Expression
+}
+
+func (pe *PrefixExpression) Debug() string {
+	return "(" + pe.Operator + ")"
+}
+
 type IndexExpression struct {
 	Token lexer.Token
 	Left  Expression

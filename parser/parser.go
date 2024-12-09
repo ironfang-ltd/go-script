@@ -227,9 +227,23 @@ func (p *Parser) parsePrefixExpression() Expression {
 	case lexer.False:
 		return p.parseBoolean()
 	case lexer.Bang:
-		return p.parsePrefixExpression()
+		fallthrough
 	case lexer.Minus:
-		return p.parsePrefixExpression()
+		expression := &PrefixExpression{
+			Token:    *p.current,
+			Operator: p.current.Source,
+		}
+
+		p.nextToken()
+
+		right := p.parseExpression(5) // Plus
+		if right == nil {
+			return nil
+		}
+
+		expression.Right = right
+
+		return expression
 	case lexer.LeftParen:
 		return p.parseGroupedExpression()
 	case lexer.If:
