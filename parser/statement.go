@@ -6,6 +6,14 @@ type Statement interface {
 	Debug() string
 }
 
+type PrintStatement struct {
+	Value string
+}
+
+func (ps *PrintStatement) Debug() string {
+	return "print " + ps.Value
+}
+
 type LetStatement struct {
 	Token lexer.Token
 	Name  *Identifier

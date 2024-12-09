@@ -86,3 +86,14 @@ func (ie *IfExpression) Debug() string {
 	}
 	return "if " + ie.Condition.Debug() + " " + ie.Consequence.Debug() + alternative
 }
+
+type ForeachExpression struct {
+	Token    lexer.Token
+	Variable *Identifier
+	Iterable Expression
+	Body     *BlockStatement
+}
+
+func (fe *ForeachExpression) Debug() string {
+	return "foreach " + fe.Iterable.Debug() + " as " + fe.Variable.Debug() + " " + fe.Body.Debug()
+}

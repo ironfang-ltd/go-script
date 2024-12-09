@@ -43,6 +43,9 @@ const (
 	As             TokenType = "AS"
 	Text           TokenType = "TEXT"
 	Code           TokenType = "CODE"
+	End            TokenType = "END"
+	ScriptStart    TokenType = "SCRIPT_START"
+	ScriptEnd      TokenType = "SCRIPT_END"
 )
 
 var TokenNone = NewToken(None, "", 0, 0, 0)

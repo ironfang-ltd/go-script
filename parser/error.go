@@ -21,8 +21,12 @@ func (e *ParseError) Error() string {
 	lines := strings.Split(e.Source, "\n")
 	line := lines[e.Token.Line-1]
 
+	// Replace tabs with 4 spaces
+	tabs := strings.Count(line, "\t")
+	line = strings.ReplaceAll(line, "\t", "    ")
+
 	sb.WriteString(fmt.Sprintf("%s\n", line))
-	sb.WriteString(strings.Repeat("-", e.Token.Column-1))
+	sb.WriteString(strings.Repeat("-", e.Token.Column-1+(3*tabs)))
 	sb.WriteString("^")
 
 	return sb.String()

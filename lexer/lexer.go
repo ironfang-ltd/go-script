@@ -5,23 +5,113 @@ import (
 	"strings"
 )
 
+type Mode int
+
+const (
+	ModeScript Mode = iota
+	ModeTemplate
+)
+
+const (
+	ScriptStartToken = "{%"
+	ScriptEndToken   = "%}"
+)
+
 type Lexer struct {
-	source   string
-	position int
-	line     int
-	col      int
+	source        string
+	position      int
+	line          int
+	col           int
+	mode          Mode
+	parseTemplate bool
 }
 
-func New(source string) *Lexer {
+func NewTemplate(source string) *Lexer {
 	return &Lexer{
-		source:   source,
-		position: 0,
-		line:     1,
-		col:      1,
+		source:        source,
+		position:      0,
+		line:          1,
+		col:           1,
+		mode:          ModeTemplate,
+		parseTemplate: true,
+	}
+}
+
+func NewScript(source string) *Lexer {
+	return &Lexer{
+		source:        source,
+		position:      0,
+		line:          1,
+		col:           1,
+		mode:          ModeScript,
+		parseTemplate: false,
 	}
 }
 
 func (l *Lexer) Read() (Token, error) {
+
+	if l.position >= len(l.source) {
+		return NewToken(EndOfFile, "", l.position, l.line, l.col), nil
+	}
+
+	if l.mode == ModeTemplate {
+		if strings.HasPrefix(l.source[l.position:], ScriptStartToken) {
+			start := l.position
+			col := l.col
+			l.position += len(ScriptStartToken)
+			l.col += len(ScriptStartToken)
+			l.mode = ModeScript
+			return NewToken(ScriptStart, ScriptStartToken, start, l.line, col), nil
+		}
+
+		return l.readTemplate()
+	}
+
+	if l.mode == ModeScript {
+		if strings.HasPrefix(l.source[l.position:], ScriptEndToken) && l.parseTemplate {
+			start := l.position
+			col := l.col
+			l.position += len(ScriptEndToken)
+			l.col += len(ScriptEndToken)
+			l.mode = ModeTemplate
+			return NewToken(ScriptEnd, ScriptEndToken, start, l.line, col), nil
+		}
+
+		return l.readScript()
+	}
+
+	return Token{}, NewTokenError(
+		fmt.Sprintf("unexpected character '%c' ", l.source[l.position]),
+		l.source, l.line, l.col)
+}
+
+func (l *Lexer) readTemplate() (Token, error) {
+	start := l.position
+	col := l.col
+	line := l.line
+
+	for {
+		if l.position >= len(l.source) {
+			break
+		}
+
+		if strings.HasPrefix(l.source[l.position:], ScriptStartToken) {
+			break
+		}
+
+		if l.source[l.position] == '\n' {
+			l.col = 0
+			l.line++
+		}
+
+		l.col++
+		l.position++
+	}
+
+	return NewToken(Text, l.source[start:l.position], start, line, col), nil
+}
+
+func (l *Lexer) readScript() (Token, error) {
 	for {
 		l.consumeWhitespace()
 
@@ -39,6 +129,13 @@ func (l *Lexer) Read() (Token, error) {
 		pos := l.position
 		col := l.col
 		line := l.line
+
+		if l.parseTemplate {
+			if token, ok := l.trySequence("%}", ScriptEnd); ok {
+				l.mode = ModeTemplate
+				return token, nil
+			}
+		}
 
 		if token, ok := l.trySingle('(', LeftParen); ok {
 			return token, nil
@@ -124,6 +221,10 @@ func (l *Lexer) Read() (Token, error) {
 			return token, nil
 		}
 
+		if token, ok := l.trySequence("as", As); ok {
+			return token, nil
+		}
+
 		if token, ok := l.trySequence("let", Let); ok {
 			return token, nil
 		}
@@ -152,7 +253,15 @@ func (l *Lexer) Read() (Token, error) {
 			return token, nil
 		}
 
+		if token, ok := l.trySequence("foreach", Foreach); ok {
+			return token, nil
+		}
+
 		if token, ok := l.trySequence("for", For); ok {
+			return token, nil
+		}
+
+		if token, ok := l.trySequence("end", End); ok {
 			return token, nil
 		}
 
@@ -167,7 +276,9 @@ func (l *Lexer) Read() (Token, error) {
 		break
 	}
 
-	return Token{}, fmt.Errorf("unexpected character '%c' at line %d, col %d", l.source[l.position], l.line, l.col)
+	return Token{}, NewTokenError(
+		fmt.Sprintf("unexpected character '%c'", l.source[l.position]),
+		l.source, l.line, l.col)
 }
 
 func (l *Lexer) GetSource() string {

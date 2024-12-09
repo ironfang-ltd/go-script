@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ironfang-ltd/ironscript/parser"
 )
@@ -12,11 +13,13 @@ type Node interface {
 
 type Evaluator struct {
 	funcs map[string]*BuiltInFunction
+	out   strings.Builder
 }
 
 func New() *Evaluator {
 	return &Evaluator{
 		funcs: make(map[string]*BuiltInFunction),
+		out:   strings.Builder{},
 	}
 }
 
@@ -38,8 +41,14 @@ func (e *Evaluator) Evaluate(program *parser.Program, scope *Scope) (Object, err
 	return result, nil
 }
 
+func (e *Evaluator) GetOutput() string {
+	return e.out.String()
+}
+
 func (e *Evaluator) evaluateNode(node Node, scope *Scope) (Object, error) {
 	switch n := node.(type) {
+	case *parser.PrintStatement:
+		return e.evaluatePrintStatement(n, scope)
 	case *parser.BlockStatement:
 		return e.evaluateBlockStatement(n, scope)
 	case *parser.LetStatement:
@@ -103,6 +112,13 @@ func (e *Evaluator) evaluateNode(node Node, scope *Scope) (Object, error) {
 	default:
 		return nil, fmt.Errorf("unknown node type: %T", n)
 	}
+}
+
+func (e *Evaluator) evaluatePrintStatement(print *parser.PrintStatement, scope *Scope) (Object, error) {
+
+	e.out.WriteString(print.Value)
+
+	return Null, nil
 }
 
 func (e *Evaluator) evaluateBlockStatement(block *parser.BlockStatement, scope *Scope) (Object, error) {

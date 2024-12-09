@@ -68,7 +68,10 @@ func (p *Parser) Parse() (*Program, error) {
 			break
 		}
 
-		t.Statements = append(t.Statements, p.parseStatement())
+		statement := p.parseStatement()
+		if statement != nil {
+			t.Statements = append(t.Statements, statement)
+		}
 
 		p.nextToken()
 	}
@@ -83,13 +86,29 @@ func (p *Parser) Parse() (*Program, error) {
 func (p *Parser) parseStatement() Statement {
 
 	switch p.current.Type {
+	case lexer.ScriptStart:
+		fallthrough
+	case lexer.ScriptEnd:
+		return nil
+	case lexer.Text:
+		return p.parseTextStatement()
 	case lexer.Let:
 		return p.parseLetStatement()
+	case lexer.Foreach:
+		return p.parseForeachExpression()
 	case lexer.Return:
 		return p.parseReturnStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
+}
+
+func (p *Parser) parseTextStatement() *PrintStatement {
+	statement := &PrintStatement{
+		Value: p.current.Source,
+	}
+
+	return statement
 }
 
 func (p *Parser) parseLetStatement() *LetStatement {
@@ -120,9 +139,11 @@ func (p *Parser) parseLetStatement() *LetStatement {
 
 	statement.Value = value
 
-	if !p.tryPeek(lexer.Semicolon) {
+	if p.current.Type != lexer.Semicolon && p.current.Type != lexer.ScriptEnd {
 		return nil
 	}
+
+	p.nextToken()
 
 	return statement
 }
@@ -162,9 +183,11 @@ func (p *Parser) parseExpressionStatement() *ExpressionStatement {
 		return statement
 	}
 
-	if !p.tryPeek(lexer.Semicolon) {
+	if p.next.Type != lexer.Semicolon && p.next.Type != lexer.ScriptEnd {
 		return nil
 	}
+
+	p.nextToken()
 
 	return statement
 }
@@ -447,6 +470,41 @@ func (p *Parser) parseIfExpression() Expression {
 
 	return expression
 
+}
+
+func (p *Parser) parseForeachExpression() Expression {
+
+	expression := &ForeachExpression{
+		Token: *p.current,
+	}
+
+	if !p.tryPeek(lexer.LeftParen) {
+		return nil
+	}
+
+	p.nextToken()
+
+	expression.Iterable = p.parseExpression(0)
+
+	if !p.tryPeek(lexer.As) {
+		return nil
+	}
+
+	p.nextToken()
+
+	expression.Variable = p.parseIdentifier()
+
+	if !p.tryPeek(lexer.RightParen) {
+		return nil
+	}
+
+	if !p.tryPeek(lexer.LeftBrace) {
+		return nil
+	}
+
+	expression.Body = p.parseBlockStatement()
+
+	return expression
 }
 
 func (p *Parser) parseBlockStatement() *BlockStatement {
