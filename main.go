@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/ironfang-ltd/ironscript/evaluator"
 
+	"github.com/ironfang-ltd/ironscript/evaluator"
 	"github.com/ironfang-ltd/ironscript/lexer"
 	"github.com/ironfang-ltd/ironscript/parser"
 )

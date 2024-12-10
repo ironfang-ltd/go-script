@@ -37,6 +37,9 @@ func (e *Evaluator) RegisterFunction(name string, fn Function) {
 }
 
 func (e *Evaluator) Evaluate(program *parser.Program, scope *Scope) (Object, error) {
+
+	e.out.Reset()
+
 	var result Object = Null
 
 	for _, statement := range program.Statements {
