@@ -370,7 +370,19 @@ func (e *Evaluator) evaluateIdentifier(ident *parser.Identifier, scope *Scope) (
 }
 
 func (e *Evaluator) evaluateFunctionLiteral(fl *parser.FunctionLiteral, scope *Scope) (Object, error) {
-	return &FunctionValue{Parameters: fl.Parameters, Body: fl.Body, Scope: scope}, nil
+
+	fv := &FunctionValue{Parameters: fl.Parameters, Body: fl.Body, Scope: scope}
+
+	if fl.Identifier != nil {
+
+		if _, ok := scope.GetLocal(fl.Identifier.Value); ok {
+			return nil, fmt.Errorf("identifier already defined in local scope: %s", fl.Identifier.Value)
+		}
+
+		scope.Set(fl.Identifier.Value, fv)
+	}
+
+	return fv, nil
 }
 
 func (e *Evaluator) evaluateCallExpression(ce *parser.CallExpression, scope *Scope) (Object, error) {

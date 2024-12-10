@@ -25,6 +25,11 @@ func (s *Scope) Get(name string) (Object, bool) {
 	return val, ok
 }
 
+func (s *Scope) GetLocal(name string) (Object, bool) {
+	val, ok := s.store[name]
+	return val, ok
+}
+
 func (s *Scope) Set(name string, val Object) {
 	s.store[name] = val
 }
