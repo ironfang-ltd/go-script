@@ -4,18 +4,30 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5ec5e50f-a3a7-4048-8fb5-181cf2f38085" name="Changes" comment="">
+    <list default="true" id="5ec5e50f-a3a7-4048-8fb5-181cf2f38085" name="Changes" comment="foreach/script statements">
+      <change afterPath="$PROJECT_DIR$/evaluator/evaluator_test.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/parser/parser_test.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/evaluator/evaluator.go" beforeDir="false" afterPath="$PROJECT_DIR$/evaluator/evaluator.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/evaluator/objects.go" beforeDir="false" afterPath="$PROJECT_DIR$/evaluator/objects.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lexer/lexer.go" beforeDir="false" afterPath="$PROJECT_DIR$/lexer/lexer.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lexer/lexer_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/lexer/lexer_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lexer/token.go" beforeDir="false" afterPath="$PROJECT_DIR$/lexer/token.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parser/parser.go" beforeDir="false" afterPath="$PROJECT_DIR$/parser/parser.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/statement.go" beforeDir="false" afterPath="$PROJECT_DIR$/parser/statement.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CoverageOptionsProvider">
+    <option name="myAddOrReplace" value="0" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
   </component>
   <component name="GOROOT" url="file:///usr/local/go" />
   <component name="Git.Settings">
@@ -34,13 +46,33 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "Go Build.go build main.go.executor": "Debug",
+    "DefaultGoTemplateProperty": "Go File",
+    "Go Build.go build github.com/ironfang-ltd/ironscript.executor": "Coverage",
+    "Go Build.go build main.go.executor": "Run",
+    "Go Test.TestEvaluateReturn in github.com/ironfang-ltd/ironscript/evaluator.executor": "Run",
     "Go Test.TestLineAndColumn in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
-    "Go Test.TestLineAndColumnScript in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
+    "Go Test.TestLineAndColumnScript in github.com/ironfang-ltd/ironscript/lexer.executor": "Coverage",
     "Go Test.TestLineAndColumnTemplate in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
+    "Go Test.TestParseCallExpression in github.com/ironfang-ltd/ironscript/parser.executor": "Run",
+    "Go Test.TestParseExpressionStatement in github.com/ironfang-ltd/ironscript/parser.executor": "Run",
+    "Go Test.TestParseFunctionLiteral in github.com/ironfang-ltd/ironscript/parser.executor": "Run",
+    "Go Test.TestParseIdentifier in github.com/ironfang-ltd/ironscript/parser.executor": "Run",
+    "Go Test.TestParseIfElseExpression in github.com/ironfang-ltd/ironscript/parser.executor": "Run",
+    "Go Test.TestParseIfExpression in github.com/ironfang-ltd/ironscript/parser.executor": "Run",
+    "Go Test.TestParseLetStatement in github.com/ironfang-ltd/ironscript/parser.executor": "Debug",
+    "Go Test.TestParseReturnStatement in github.com/ironfang-ltd/ironscript/parser.executor": "Run",
+    "Go Test.TestParseScriptTokens in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
+    "Go Test.TestParseStringWithEscaped in github.com/ironfang-ltd/ironscript/lexer.executor": "Debug",
+    "Go Test.TestParseStringWithMissingEnd in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
+    "Go Test.TestParseStringWithNewLine in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
+    "Go Test.TestTemplate in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
     "Go Test.TestTemplateLineAndColumnWithFull in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
     "Go Test.TestTemplateLineAndColumnWithWhitespace in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
     "Go Test.go test github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
+    "Go Test.go test github.com/ironfang-ltd/ironscript/parser.executor": "Run",
+    "Go Test.go test ironscript.executor": "Coverage",
+    "Go Test.go test lexer.executor": "Coverage",
+    "Go Test.lexer_test.go.executor": "Coverage",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.go.formatter.settings.were.checked": "true",
@@ -61,58 +93,61 @@
       <recent name="$PROJECT_DIR$/lexer" />
     </key>
   </component>
-  <component name="RunManager" selected="Go Build.go build main.go">
-    <configuration name="go build main.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Go Test.TestEvaluateReturn in github.com/ironfang-ltd/ironscript/evaluator">
+    <configuration name="TestEvaluateReturn in github.com/ironfang-ltd/ironscript/evaluator" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="ironscript" />
-      <working_directory value="$PROJECT_DIR$" />
-      <kind value="FILE" />
-      <package value="github.com/ironfang-ltd/ironscript" />
-      <directory value="$PROJECT_DIR$" />
-      <filePath value="$PROJECT_DIR$/main.go" />
-      <method v="2" />
-    </configuration>
-    <configuration name="TestLineAndColumnTemplate in github.com/ironfang-ltd/ironscript/lexer" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
-      <module name="ironscript" />
-      <working_directory value="$PROJECT_DIR$/lexer" />
+      <working_directory value="$PROJECT_DIR$/evaluator" />
       <root_directory value="$PROJECT_DIR$" />
       <kind value="PACKAGE" />
-      <package value="github.com/ironfang-ltd/ironscript/lexer" />
+      <package value="github.com/ironfang-ltd/ironscript/evaluator" />
       <directory value="$PROJECT_DIR$" />
       <filePath value="$PROJECT_DIR$" />
       <framework value="gotest" />
-      <pattern value="^\QTestLineAndColumnTemplate\E$" />
+      <pattern value="^\QTestEvaluateReturn\E$" />
       <method v="2" />
     </configuration>
-    <configuration name="TestTemplateLineAndColumnWithFull in github.com/ironfang-ltd/ironscript/lexer" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+    <configuration name="TestParseCallExpression in github.com/ironfang-ltd/ironscript/parser" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="ironscript" />
-      <working_directory value="$PROJECT_DIR$/lexer" />
+      <working_directory value="$PROJECT_DIR$/parser" />
       <root_directory value="$PROJECT_DIR$" />
       <kind value="PACKAGE" />
-      <package value="github.com/ironfang-ltd/ironscript/lexer" />
+      <package value="github.com/ironfang-ltd/ironscript/parser" />
       <directory value="$PROJECT_DIR$" />
       <filePath value="$PROJECT_DIR$" />
       <framework value="gotest" />
-      <pattern value="^\QTestTemplateLineAndColumnWithFull\E$" />
+      <pattern value="^\QTestParseCallExpression\E$" />
       <method v="2" />
     </configuration>
-    <configuration name="TestTemplateLineAndColumnWithWhitespace in github.com/ironfang-ltd/ironscript/lexer" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+    <configuration name="TestParseIfElseExpression in github.com/ironfang-ltd/ironscript/parser" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="ironscript" />
-      <working_directory value="$PROJECT_DIR$/lexer" />
+      <working_directory value="$PROJECT_DIR$/parser" />
       <root_directory value="$PROJECT_DIR$" />
       <kind value="PACKAGE" />
-      <package value="github.com/ironfang-ltd/ironscript/lexer" />
+      <package value="github.com/ironfang-ltd/ironscript/parser" />
       <directory value="$PROJECT_DIR$" />
       <filePath value="$PROJECT_DIR$" />
       <framework value="gotest" />
-      <pattern value="^\QTestTemplateLineAndColumnWithWhitespace\E$" />
+      <pattern value="^\QTestParseIfElseExpression\E$" />
       <method v="2" />
     </configuration>
-    <configuration name="go test github.com/ironfang-ltd/ironscript/lexer" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+    <configuration name="TestParseIfExpression in github.com/ironfang-ltd/ironscript/parser" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="ironscript" />
-      <working_directory value="$PROJECT_DIR$/lexer" />
+      <working_directory value="$PROJECT_DIR$/parser" />
       <root_directory value="$PROJECT_DIR$" />
       <kind value="PACKAGE" />
-      <package value="github.com/ironfang-ltd/ironscript/lexer" />
+      <package value="github.com/ironfang-ltd/ironscript/parser" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="^\QTestParseIfExpression\E$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="go test github.com/ironfang-ltd/ironscript/parser" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="ironscript" />
+      <working_directory value="$PROJECT_DIR$/parser" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="github.com/ironfang-ltd/ironscript/parser" />
       <directory value="$PROJECT_DIR$" />
       <filePath value="$PROJECT_DIR$" />
       <framework value="gotest" />
@@ -120,11 +155,11 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Go Build.go build main.go" />
-        <item itemvalue="Go Test.go test github.com/ironfang-ltd/ironscript/lexer" />
-        <item itemvalue="Go Test.TestTemplateLineAndColumnWithFull in github.com/ironfang-ltd/ironscript/lexer" />
-        <item itemvalue="Go Test.TestTemplateLineAndColumnWithWhitespace in github.com/ironfang-ltd/ironscript/lexer" />
-        <item itemvalue="Go Test.TestLineAndColumnTemplate in github.com/ironfang-ltd/ironscript/lexer" />
+        <item itemvalue="Go Test.TestEvaluateReturn in github.com/ironfang-ltd/ironscript/evaluator" />
+        <item itemvalue="Go Test.TestParseIfElseExpression in github.com/ironfang-ltd/ironscript/parser" />
+        <item itemvalue="Go Test.go test github.com/ironfang-ltd/ironscript/parser" />
+        <item itemvalue="Go Test.TestParseIfExpression in github.com/ironfang-ltd/ironscript/parser" />
+        <item itemvalue="Go Test.TestParseCallExpression in github.com/ironfang-ltd/ironscript/parser" />
       </list>
     </recent_temporary>
   </component>
@@ -140,23 +175,20 @@
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="foreach/script statements" />
+    <option name="LAST_COMMIT_MESSAGE" value="foreach/script statements" />
+  </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
   </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
-          <url>file://$PROJECT_DIR$/parser/parser.go</url>
-          <line>193</line>
-          <option name="timeStamp" value="9" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
-          <url>file://$PROJECT_DIR$/evaluator/evaluator.go</url>
-          <line>497</line>
-          <option name="timeStamp" value="13" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/ironscript$go_test_github_com_ironfang_ltd_ironscript_lexer.out" NAME="go test github.com/ironfang-ltd/ironscript/lexer Coverage Results" MODIFIED="1733795097774" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="GoCoverage" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
+    <SUITE FILE_PATH="coverage/ironscript$go_test_lexer.out" NAME="go test lexer Coverage Results" MODIFIED="1733792897553" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="GoCoverage" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
+    <SUITE FILE_PATH="coverage/ironscript$go_test_ironscript.out" NAME="go test ironscript Coverage Results" MODIFIED="1733796439416" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="GoCoverage" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
+    <SUITE FILE_PATH="coverage/ironscript$TestLineAndColumnScript_in_github_com_ironfang_ltd_ironscript_lexer.out" NAME="TestLineAndColumnScript in github.com/ironfang-ltd/ironscript/lexer Coverage Results" MODIFIED="1733792861828" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="GoCoverage" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
+    <SUITE FILE_PATH="coverage/ironscript$lexer_test_go.out" NAME="lexer_test.go Coverage Results" MODIFIED="1733795272472" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="GoCoverage" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
+    <SUITE FILE_PATH="coverage/ironscript$go_test_github_com_ironfang_ltd_ironscript_parser.out" NAME="go test github.com/ironfang-ltd/ironscript/parser Coverage Results" MODIFIED="1733796605437" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="GoCoverage" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
+    <SUITE FILE_PATH="coverage/ironscript$go_build_github_com_ironfang_ltd_ironscript.out" NAME="go build github.com/ironfang-ltd/ironscript Coverage Results" MODIFIED="1733796470133" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="GoCoverage" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
   </component>
 </project>

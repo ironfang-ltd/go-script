@@ -65,24 +65,9 @@ func (l *Lexer) Read() (Token, error) {
 		}
 
 		return l.readTemplate()
-	}
-
-	if l.mode == ModeScript {
-		if strings.HasPrefix(l.source[l.position:], ScriptEndToken) && l.parseTemplate {
-			start := l.position
-			col := l.col
-			l.position += len(ScriptEndToken)
-			l.col += len(ScriptEndToken)
-			l.mode = ModeTemplate
-			return NewToken(ScriptEnd, ScriptEndToken, start, l.line, col), nil
-		}
-
+	} else {
 		return l.readScript()
 	}
-
-	return Token{}, NewTokenError(
-		fmt.Sprintf("unexpected character '%c' ", l.source[l.position]),
-		l.source, l.line, l.col)
 }
 
 func (l *Lexer) readTemplate() (Token, error) {
@@ -161,6 +146,10 @@ func (l *Lexer) readScript() (Token, error) {
 			return token, nil
 		}
 
+		if token, ok, err := l.tryString('"', String); ok || err != nil {
+			return token, err
+		}
+
 		if token, ok := l.trySingle('.', Dot); ok {
 			return token, nil
 		}
@@ -189,7 +178,11 @@ func (l *Lexer) readScript() (Token, error) {
 			return token, nil
 		}
 
-		if token, ok := l.trySingle('=', Equal); ok {
+		if token, ok := l.trySingle('/', Slash); ok {
+			return token, nil
+		}
+
+		if token, ok := l.trySequence("==", Equals); ok {
 			return token, nil
 		}
 
@@ -197,11 +190,11 @@ func (l *Lexer) readScript() (Token, error) {
 			return token, nil
 		}
 
-		if token, ok := l.trySingle('!', Bang); ok {
+		if token, ok := l.trySingle('=', Equal); ok {
 			return token, nil
 		}
 
-		if token, ok := l.trySequence("==", Equals); ok {
+		if token, ok := l.trySingle('!', Bang); ok {
 			return token, nil
 		}
 
@@ -254,14 +247,6 @@ func (l *Lexer) readScript() (Token, error) {
 		}
 
 		if token, ok := l.trySequence("foreach", Foreach); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("for", For); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("end", End); ok {
 			return token, nil
 		}
 
@@ -322,6 +307,47 @@ func (l *Lexer) trySequence(seq string, tokenType TokenType) (Token, bool) {
 	return TokenNone, false
 }
 
+func (l *Lexer) tryString(quote byte, tokenType TokenType) (Token, bool, error) {
+
+	pos := l.position
+	col := l.col
+	line := l.line
+
+	if l.source[l.position] != quote {
+		return TokenNone, false, nil
+	}
+
+	l.position++
+	l.col++
+
+	for {
+		if l.position >= len(l.source) {
+			return TokenNone, false, NewTokenError("unexpected end of file when parsing string", l.source, line, col)
+		}
+
+		if l.source[l.position] == quote {
+
+			// check for escaped quote
+			if l.position > 0 && l.source[l.position-1] == '\\' {
+				l.position++
+				l.col++
+				continue
+			}
+
+			l.position++
+			l.col++
+			return NewToken(tokenType, l.source[pos:l.position], pos, line, col), true, nil
+		}
+
+		if l.source[l.position] == '\n' {
+			return TokenNone, false, nil
+		}
+
+		l.position++
+		l.col++
+	}
+}
+
 func (l *Lexer) tryNumber() (Token, bool) {
 
 	ok := false
@@ -348,6 +374,7 @@ func (l *Lexer) tryNumber() (Token, bool) {
 			l.col++
 			tokenType = Float
 			ok = true
+			continue
 		}
 
 		break

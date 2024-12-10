@@ -11,16 +11,16 @@ import (
 func main() {
 
 	t := `
-	<h1>{% title %}</h1>
-	<h2>Items ({% print(count(items)) %}): </h2>
-	{% if (count(items) > 0) { %}
-		<p>There are items</p>
+<h1>{% title %}</h1>
+<h2>Items ({% print(count(items)) %}): </h2>
+{% if (count(items) > 0) { %}
+<p>There are items</p>
+{% } %}
+<ul>
+	{% foreach (items as item) { %}
+	<li>{% print(item.name) %}</li>
 	{% } %}
-	<ul>
-		{% foreach (items as item) { %}
-			<li>{% print(item.name) %}</li>
-		{% } %}
-	</ul>
+</ul>
 `
 
 	l := lexer.NewTemplate(t)

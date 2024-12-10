@@ -3,9 +3,9 @@ package parser
 import (
 	"errors"
 	"fmt"
-	"strconv"
-
 	"github.com/ironfang-ltd/ironscript/lexer"
+	"strconv"
+	"strings"
 )
 
 var Precedences = []lexer.TokenType{
@@ -44,6 +44,7 @@ func (p *Program) Debug() string {
 
 type Parser struct {
 	l       *lexer.Lexer
+	prev    *lexer.Token
 	current *lexer.Token
 	next    *lexer.Token
 	errors  []error
@@ -108,6 +109,17 @@ func (p *Parser) parseTextStatement() *PrintStatement {
 		Value: p.current.Source,
 	}
 
+	if p.next.Type == lexer.ScriptStart {
+		lastNewLine := strings.LastIndexByte(statement.Value, '\n')
+		if lastNewLine != -1 {
+			// Remove the last new line and whitespace after it
+			// if the last line is empty
+			if strings.TrimSpace(statement.Value[lastNewLine:]) == "" {
+				statement.Value = statement.Value[:lastNewLine]
+			}
+		}
+	}
+
 	return statement
 }
 
@@ -139,7 +151,7 @@ func (p *Parser) parseLetStatement() *LetStatement {
 
 	statement.Value = value
 
-	if p.current.Type != lexer.Semicolon && p.current.Type != lexer.ScriptEnd {
+	if p.next.Type != lexer.Semicolon && p.next.Type != lexer.ScriptEnd {
 
 		p.errors = append(p.errors,
 			NewParseError(
@@ -186,6 +198,10 @@ func (p *Parser) parseExpressionStatement() *ExpressionStatement {
 	}
 
 	if _, ok := expression.(*FunctionLiteral); ok {
+		return statement
+	}
+
+	if _, ok := expression.(*IfExpression); ok {
 		return statement
 	}
 
@@ -650,6 +666,7 @@ func (p *Parser) tryPeek(tokenToken lexer.TokenType) bool {
 
 func (p *Parser) nextToken() {
 
+	p.prev = p.current
 	p.current = p.next
 
 	next, err := p.l.Read()

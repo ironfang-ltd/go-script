@@ -37,13 +37,10 @@ const (
 	False          TokenType = "FALSE"
 	If             TokenType = "IF"
 	Else           TokenType = "ELSE"
-	For            TokenType = "FOR"
 	Bang           TokenType = "BANG"
 	Foreach        TokenType = "FOREACH"
 	As             TokenType = "AS"
 	Text           TokenType = "TEXT"
-	Code           TokenType = "CODE"
-	End            TokenType = "END"
 	ScriptStart    TokenType = "SCRIPT_START"
 	ScriptEnd      TokenType = "SCRIPT_END"
 )
