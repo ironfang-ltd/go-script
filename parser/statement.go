@@ -6,6 +6,18 @@ type Statement interface {
 	Debug() string
 }
 
+type ScriptStatement struct {
+	Statements []Statement
+}
+
+func (ss *ScriptStatement) Debug() string {
+	str := ""
+	for _, s := range ss.Statements {
+		str += s.Debug() + "\n"
+	}
+	return str
+}
+
 type PrintStatement struct {
 	Value string
 }

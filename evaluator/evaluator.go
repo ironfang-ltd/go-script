@@ -17,10 +17,19 @@ type Evaluator struct {
 }
 
 func New() *Evaluator {
-	return &Evaluator{
+	e := &Evaluator{
 		funcs: make(map[string]*BuiltInFunction),
 		out:   strings.Builder{},
 	}
+
+	e.RegisterFunction("print", func(args ...Object) (Object, error) {
+		for _, arg := range args {
+			e.out.WriteString(arg.Debug())
+		}
+		return Null, nil
+	})
+
+	return e
 }
 
 func (e *Evaluator) RegisterFunction(name string, fn Function) {
@@ -35,6 +44,15 @@ func (e *Evaluator) Evaluate(program *parser.Program, scope *Scope) (Object, err
 		if err != nil {
 			return nil, err
 		}
+
+		if _, ok := evalResult.(*ReturnValue); ok {
+			return evalResult, nil
+		}
+
+		if evalResult != nil && evalResult.Type() != NullObject {
+			e.out.WriteString(evalResult.Debug())
+		}
+
 		result = evalResult
 	}
 
@@ -48,7 +66,7 @@ func (e *Evaluator) GetOutput() string {
 func (e *Evaluator) evaluateNode(node Node, scope *Scope) (Object, error) {
 	switch n := node.(type) {
 	case *parser.PrintStatement:
-		return e.evaluatePrintStatement(n, scope)
+		return e.evaluatePrintStatement(n)
 	case *parser.BlockStatement:
 		return e.evaluateBlockStatement(n, scope)
 	case *parser.LetStatement:
@@ -57,6 +75,8 @@ func (e *Evaluator) evaluateNode(node Node, scope *Scope) (Object, error) {
 		return e.evaluateReturnStatement(n, scope)
 	case *parser.ExpressionStatement:
 		return e.evaluateNode(n.Expression, scope)
+	case *parser.ForeachExpression:
+		return e.evaluateForEach(n, scope)
 	case *parser.IntegerLiteral:
 		return &IntegerValue{Value: n.Value}, nil
 	case *parser.BooleanLiteral:
@@ -114,9 +134,51 @@ func (e *Evaluator) evaluateNode(node Node, scope *Scope) (Object, error) {
 	}
 }
 
-func (e *Evaluator) evaluatePrintStatement(print *parser.PrintStatement, scope *Scope) (Object, error) {
-
+func (e *Evaluator) evaluatePrintStatement(print *parser.PrintStatement) (Object, error) {
 	e.out.WriteString(print.Value)
+	return Null, nil
+}
+
+func (e *Evaluator) evaluateForEach(foreach *parser.ForeachExpression, scope *Scope) (Object, error) {
+	iterable, err := e.evaluateNode(foreach.Iterable, scope)
+	if err != nil {
+		return nil, err
+	}
+
+	switch i := iterable.(type) {
+	case *ArrayValue:
+		return e.evaluateArrayForEach(foreach, i, scope)
+	case *HashValue:
+		return e.evaluateHashForEach(foreach, i, scope)
+	default:
+		return Null, nil
+	}
+}
+
+func (e *Evaluator) evaluateArrayForEach(foreach *parser.ForeachExpression, array *ArrayValue, scope *Scope) (Object, error) {
+	for _, el := range array.Elements {
+		extendedScope := NewChildScope(scope)
+		extendedScope.Set(foreach.Variable.Value, el)
+
+		_, err := e.evaluateBlockStatement(foreach.Body, extendedScope)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return Null, nil
+}
+
+func (e *Evaluator) evaluateHashForEach(foreach *parser.ForeachExpression, hash *HashValue, scope *Scope) (Object, error) {
+	for _, pair := range hash.Pairs {
+		extendedScope := NewChildScope(scope)
+		extendedScope.Set(foreach.Variable.Value, pair.Value)
+
+		_, err := e.evaluateBlockStatement(foreach.Body, extendedScope)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return Null, nil
 }
@@ -438,7 +500,7 @@ func (e *Evaluator) evaluatePropertyExpression(pe *parser.PropertyExpression, sc
 		return nil, err
 	}
 
-	if _, ok := left.(*HashValue); ok {
+	if _, ok := left.(*HashValue); !ok {
 		return Null, nil
 	}
 

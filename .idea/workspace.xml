@@ -5,19 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5ec5e50f-a3a7-4048-8fb5-181cf2f38085" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/lexer/error.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/evaluator/evaluator.go" beforeDir="false" afterPath="$PROJECT_DIR$/evaluator/evaluator.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexer/lexer.go" beforeDir="false" afterPath="$PROJECT_DIR$/lexer/lexer.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexer/lexer_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/lexer/lexer_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lexer/token.go" beforeDir="false" afterPath="$PROJECT_DIR$/lexer/token.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/evaluator/objects.go" beforeDir="false" afterPath="$PROJECT_DIR$/evaluator/objects.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/error.go" beforeDir="false" afterPath="$PROJECT_DIR$/parser/error.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/expression.go" beforeDir="false" afterPath="$PROJECT_DIR$/parser/expression.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parser/parser.go" beforeDir="false" afterPath="$PROJECT_DIR$/parser/parser.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parser/statement.go" beforeDir="false" afterPath="$PROJECT_DIR$/parser/statement.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/template/lexer.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/template/parser.go" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,7 +34,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "Go Build.go build main.go.executor": "Run",
+    "Go Build.go build main.go.executor": "Debug",
     "Go Test.TestLineAndColumn in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
     "Go Test.TestLineAndColumnScript in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
     "Go Test.TestLineAndColumnTemplate in github.com/ironfang-ltd/ironscript/lexer.executor": "Run",
@@ -56,7 +49,7 @@
     "git-widget-placeholder": "main",
     "go.import.settings.migrated": "true",
     "go.sdk.automatically.set": "true",
-    "last_opened_file_path": "/home/richard/Projects/github/ironfang-ltd/ironscript/lexer",
+    "last_opened_file_path": "/home/richard/Projects/github.com/ironfang-ltd/ironscript",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
@@ -138,8 +131,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-gosdk-d297c17c1fbd-b87a2f8923ed-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-243.21565.208" />
-        <option value="bundled-js-predefined-d6986cc7102b-e768b9ed790e-JavaScript-GO-243.21565.208" />
+        <option value="bundled-gosdk-5df93f7ad4aa-df9ad98b711f-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-242.21829.220" />
+        <option value="bundled-js-predefined-d6986cc7102b-7c0b70fcd90d-JavaScript-GO-242.21829.220" />
       </set>
     </attachedChunks>
   </component>
@@ -149,5 +142,21 @@
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/parser/parser.go</url>
+          <line>193</line>
+          <option name="timeStamp" value="9" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/evaluator/evaluator.go</url>
+          <line>497</line>
+          <option name="timeStamp" value="13" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>

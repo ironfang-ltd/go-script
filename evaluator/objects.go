@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"fmt"
+	"hash/fnv"
 
 	"github.com/ironfang-ltd/ironscript/parser"
 )
@@ -93,6 +94,14 @@ func (s *StringValue) Type() ObjectType {
 	return StringObject
 }
 
+func (s *StringValue) HashKey() HashKey {
+
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(s.Value))
+
+	return HashKey{Type: s.Type(), Value: h.Sum64()}
+}
+
 type FunctionValue struct {
 	Parameters []*parser.Identifier
 	Body       *parser.BlockStatement
@@ -135,6 +144,10 @@ type HashPair struct {
 
 type HashValue struct {
 	Pairs map[HashKey]HashPair
+}
+
+func NewHashValue() *HashValue {
+	return &HashValue{Pairs: make(map[HashKey]HashPair)}
 }
 
 func (h *HashValue) Debug() string {

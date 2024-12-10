@@ -87,7 +87,7 @@ func (p *Parser) parseStatement() Statement {
 
 	switch p.current.Type {
 	case lexer.ScriptStart:
-		fallthrough
+		return nil
 	case lexer.ScriptEnd:
 		return nil
 	case lexer.Text:
@@ -140,6 +140,12 @@ func (p *Parser) parseLetStatement() *LetStatement {
 	statement.Value = value
 
 	if p.current.Type != lexer.Semicolon && p.current.Type != lexer.ScriptEnd {
+
+		p.errors = append(p.errors,
+			NewParseError(
+				fmt.Sprintf("expected %s or %s, got %s", lexer.Semicolon, lexer.ScriptEnd, p.current.Type),
+				p.l.GetSource(), p.current))
+
 		return nil
 	}
 
@@ -184,6 +190,12 @@ func (p *Parser) parseExpressionStatement() *ExpressionStatement {
 	}
 
 	if p.next.Type != lexer.Semicolon && p.next.Type != lexer.ScriptEnd {
+
+		p.errors = append(p.errors,
+			NewParseError(
+				fmt.Sprintf("expected %s or %s, got %s", lexer.Semicolon, lexer.ScriptEnd, p.next.Type),
+				p.l.GetSource(), p.next))
+
 		return nil
 	}
 
@@ -200,7 +212,7 @@ func (p *Parser) parseExpression(precedence int) Expression {
 	}
 
 	for {
-		if p.next.Type == lexer.Semicolon || precedence >= p.peekPrecedence() {
+		if (p.next.Type == lexer.Semicolon || p.next.Type == lexer.ScriptEnd) || precedence >= p.peekPrecedence() {
 			return leftExpression
 		}
 
@@ -323,8 +335,6 @@ func (p *Parser) parseAccessExpression(left Expression) Expression {
 	}
 
 	expression.Property = p.parseExpression(0)
-
-	p.nextToken()
 
 	return expression
 }
@@ -469,7 +479,6 @@ func (p *Parser) parseIfExpression() Expression {
 	}
 
 	return expression
-
 }
 
 func (p *Parser) parseForeachExpression() Expression {
@@ -516,11 +525,15 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 	p.nextToken()
 
 	for {
+
 		if p.current.Type == lexer.RightBrace || p.current.Type == lexer.EndOfFile {
 			break
 		}
 
-		block.Statements = append(block.Statements, p.parseStatement())
+		statement := p.parseStatement()
+		if statement != nil {
+			block.Statements = append(block.Statements, statement)
+		}
 
 		p.nextToken()
 	}
@@ -553,7 +566,9 @@ func (p *Parser) parseFunctionParameters() []*Identifier {
 		})
 	}
 
-	p.tryPeek(lexer.RightParen)
+	if !p.tryPeek(lexer.RightParen) {
+		return nil
+	}
 
 	return identifiers
 }
