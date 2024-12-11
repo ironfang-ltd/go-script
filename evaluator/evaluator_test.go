@@ -54,7 +54,7 @@ func TestEvaluateFnLiteral(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if ret.Type() != NullObject {
-		t.Errorf("got=%v, expected=%v", ret.Type(), NullObject)
+	if ret.Type() != FunctionObject {
+		t.Errorf("got=%v, expected=%v", ret.Type(), FunctionObject)
 	}
 }
