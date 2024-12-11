@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/ironfang-ltd/ironscript/parser"
@@ -12,19 +13,29 @@ type Node interface {
 }
 
 type Evaluator struct {
-	funcs map[string]*BuiltInFunction
-	out   strings.Builder
+	funcs  map[string]*BuiltInFunction
+	output strings.Builder
+	log    io.StringWriter
 }
 
-func New() *Evaluator {
+func New(log io.StringWriter) *Evaluator {
 	e := &Evaluator{
-		funcs: make(map[string]*BuiltInFunction),
-		out:   strings.Builder{},
+		funcs:  make(map[string]*BuiltInFunction),
+		output: strings.Builder{},
+		log:    log,
 	}
+
+	e.RegisterFunction("log", func(args ...Object) (Object, error) {
+		for _, arg := range args {
+			_, _ = e.log.WriteString(arg.Debug())
+			_, _ = e.log.WriteString("\n")
+		}
+		return Null, nil
+	})
 
 	e.RegisterFunction("print", func(args ...Object) (Object, error) {
 		for _, arg := range args {
-			e.out.WriteString(arg.Debug())
+			e.output.WriteString(arg.Debug())
 		}
 		return Null, nil
 	})
@@ -38,7 +49,7 @@ func (e *Evaluator) RegisterFunction(name string, fn Function) {
 
 func (e *Evaluator) Evaluate(program *parser.Program, scope *Scope) (Object, error) {
 
-	e.out.Reset()
+	e.output.Reset()
 
 	var result Object = Null
 
@@ -52,8 +63,8 @@ func (e *Evaluator) Evaluate(program *parser.Program, scope *Scope) (Object, err
 			return evalResult, nil
 		}
 
-		if evalResult != nil && evalResult.Type() != NullObject {
-			e.out.WriteString(evalResult.Debug())
+		if evalResult != nil && evalResult.Type() != NullObject && evalResult.Type() != ReturnValueObject && evalResult.Type() != FunctionObject {
+			e.output.WriteString(evalResult.Debug())
 		}
 
 		result = evalResult
@@ -63,7 +74,7 @@ func (e *Evaluator) Evaluate(program *parser.Program, scope *Scope) (Object, err
 }
 
 func (e *Evaluator) GetOutput() string {
-	return e.out.String()
+	return e.output.String()
 }
 
 func (e *Evaluator) evaluateNode(node Node, scope *Scope) (Object, error) {
@@ -138,7 +149,7 @@ func (e *Evaluator) evaluateNode(node Node, scope *Scope) (Object, error) {
 }
 
 func (e *Evaluator) evaluatePrintStatement(print *parser.PrintStatement) (Object, error) {
-	e.out.WriteString(print.Value)
+	e.output.WriteString(print.Value)
 	return Null, nil
 }
 

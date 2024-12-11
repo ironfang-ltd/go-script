@@ -427,7 +427,14 @@ func (p *Parser) parseInteger() Expression {
 func (p *Parser) parseString() Expression {
 
 	literal := &StringLiteral{Token: *p.current}
-	literal.Value = p.current.Source
+
+	v := strings.Trim(p.current.Source, "\"")
+
+	v = strings.ReplaceAll(v, "\\n", "\n")
+	v = strings.ReplaceAll(v, "\\r", "\r")
+	v = strings.ReplaceAll(v, "\\t", "\t")
+
+	literal.Value = v
 
 	return literal
 }
