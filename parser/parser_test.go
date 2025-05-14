@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"github.com/ironfang-ltd/ironscript/lexer"
+	"github.com/ironfang-ltd/go-script/lexer"
 	"testing"
 )
 

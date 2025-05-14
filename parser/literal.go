@@ -3,7 +3,7 @@ package parser
 import (
 	"strings"
 
-	"github.com/ironfang-ltd/ironscript/lexer"
+	"github.com/ironfang-ltd/go-script/lexer"
 )
 
 type IntegerLiteral struct {

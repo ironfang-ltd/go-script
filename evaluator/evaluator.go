@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/ironfang-ltd/ironscript/parser"
+	"github.com/ironfang-ltd/go-script/parser"
 )
 
 type Node interface {

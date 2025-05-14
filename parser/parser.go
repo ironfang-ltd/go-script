@@ -3,7 +3,7 @@ package parser
 import (
 	"errors"
 	"fmt"
-	"github.com/ironfang-ltd/ironscript/lexer"
+	"github.com/ironfang-ltd/go-script/lexer"
 	"strconv"
 	"strings"
 )
@@ -61,7 +61,7 @@ func (p *Parser) Parse() (*Program, error) {
 	p.nextToken()
 	p.nextToken()
 
-	t := &Program{}
+	t := NewProgram()
 
 	for {
 

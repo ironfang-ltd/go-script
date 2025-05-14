@@ -1,6 +1,6 @@
 package parser
 
-import "github.com/ironfang-ltd/ironscript/lexer"
+import "github.com/ironfang-ltd/go-script/lexer"
 
 type Statement interface {
 	Debug() string

@@ -1,8 +1,8 @@
 package evaluator
 
 import (
-	"github.com/ironfang-ltd/ironscript/lexer"
-	"github.com/ironfang-ltd/ironscript/parser"
+	"github.com/ironfang-ltd/go-script/lexer"
+	"github.com/ironfang-ltd/go-script/parser"
 	"os"
 	"testing"
 )
