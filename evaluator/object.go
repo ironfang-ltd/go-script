@@ -7,6 +7,7 @@ const (
 	ReturnValueObject     ObjectType = "RETURN_VALUE"
 	BooleanObject         ObjectType = "BOOLEAN"
 	IntegerObject         ObjectType = "INTEGER"
+	DecimalObject         ObjectType = "DECIMAL"
 	StringObject          ObjectType = "STRING"
 	DateTimeObject        ObjectType = "DATETIME"
 	FunctionObject        ObjectType = "FUNCTION"
