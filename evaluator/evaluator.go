@@ -8,6 +8,12 @@ import (
 	"github.com/ironfang-ltd/go-script/parser"
 )
 
+var (
+	True  = &BooleanValue{Value: true}
+	False = &BooleanValue{Value: false}
+	Null  = &NullValue{}
+)
+
 type Node interface {
 	Debug() string
 }
