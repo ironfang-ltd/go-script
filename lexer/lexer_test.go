@@ -442,6 +442,34 @@ func TestFn(t *testing.T) {
 	}
 }
 
+func TestFnCall(t *testing.T) {
+
+	script := `test64(a,b)`
+
+	want := []Token{
+		{Type: Identifier, Source: "test64"},
+		{Type: LeftParen, Source: "("},
+		{Type: Identifier, Source: "a"},
+		{Type: Comma, Source: ","},
+		{Type: Identifier, Source: "b"},
+		{Type: RightParen, Source: ")"},
+		{Type: EndOfFile, Source: ""},
+	}
+
+	l := NewScript(script)
+
+	for _, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Error(err)
+		}
+
+		if tok.Type != w.Type {
+			t.Errorf("want %s, got %s", w.Type, tok.Type)
+		}
+	}
+}
+
 func TestTemplate(t *testing.T) {
 
 	script := `hello {% world %}!`

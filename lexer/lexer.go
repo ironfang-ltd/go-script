@@ -391,12 +391,20 @@ func (l *Lexer) tryIdentifier() bool {
 
 	ok := false
 
+	c := l.source[l.position]
+
+	if c >= '0' && c <= '9' {
+		return false
+	}
+
 	for {
 		if l.position >= len(l.source) {
 			break
 		}
 
-		if l.source[l.position] == '_' || (l.source[l.position] >= 'a' && l.source[l.position] <= 'z') || (l.source[l.position] >= 'A' && l.source[l.position] <= 'Z') {
+		c = l.source[l.position]
+
+		if c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
 			l.position++
 			l.col++
 			ok = true
