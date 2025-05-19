@@ -205,7 +205,7 @@ func (p *Parser) parseExpressionStatement() *ExpressionStatement {
 		return statement
 	}
 
-	if p.next.Type != lexer.Semicolon && p.next.Type != lexer.ScriptEnd {
+	if p.next.Type != lexer.Semicolon && p.next.Type != lexer.ScriptEnd && p.next.Type != lexer.EndOfFile {
 
 		p.errors = append(p.errors,
 			NewParseError(
