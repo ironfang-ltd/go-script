@@ -13,6 +13,7 @@ const (
 	FunctionObject        ObjectType = "FUNCTION"
 	ArrayObject           ObjectType = "ARRAY"
 	HashObject            ObjectType = "HASH"
+	FileObject            ObjectType = "FILE"
 	BuiltInFunctionObject ObjectType = "BUILTIN_FUNCTION"
 )
 
