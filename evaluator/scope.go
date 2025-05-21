@@ -33,3 +33,7 @@ func (s *Scope) GetLocal(name string) (Object, bool) {
 func (s *Scope) Set(name string, val Object) {
 	s.store[name] = val
 }
+
+func (s *Scope) DeleteLocal(name string) {
+	delete(s.store, name)
+}
