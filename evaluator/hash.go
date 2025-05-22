@@ -30,6 +30,11 @@ func (h *HashValue) Type() ObjectType {
 	return HashObject
 }
 
+func (h *HashValue) HasKey(key Hashable) bool {
+	_, ok := h.Pairs[key.HashKey()]
+	return ok
+}
+
 func (h *HashValue) Set(key Object, value Object) {
 	hashKey := key.(Hashable).HashKey()
 	h.Pairs[hashKey] = HashPair{Key: key, Value: value}

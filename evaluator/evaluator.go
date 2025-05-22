@@ -46,6 +46,22 @@ func New(log io.StringWriter) *Evaluator {
 		return Null, nil
 	})
 
+	e.RegisterFunction("append", func(args ...Object) (Object, error) {
+
+		if len(args) != 2 {
+			return nil, fmt.Errorf("expected 2 arguments, got %d", len(args))
+		}
+
+		arrValue, ok := args[0].(*ArrayValue)
+		if !ok {
+			return nil, fmt.Errorf("expected array, got %s", arrValue.Type())
+		}
+
+		arrValue.Elements = append(arrValue.Elements, args[1])
+
+		return arrValue, nil
+	})
+
 	return e
 }
 

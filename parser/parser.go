@@ -171,11 +171,11 @@ func (p *Parser) parseLetStatement() (*LetStatement, error) {
 
 	statement.Value = value
 
-	if p.next.Type != lexer.Semicolon && p.next.Type != lexer.ScriptEnd {
+	if p.next.Type != lexer.Semicolon && p.next.Type != lexer.ScriptEnd && p.next.Type != lexer.EndOfFile {
 
 		p.errors = append(p.errors,
 			NewParseError(
-				fmt.Sprintf("expected %s or %s, got %s", lexer.Semicolon, lexer.ScriptEnd, p.current.Type),
+				fmt.Sprintf("expected %s, %s or %s, got %s", lexer.Semicolon, lexer.ScriptEnd, lexer.EndOfFile, p.current.Type),
 				p.l.GetSource(), p.current))
 
 		return nil, nil
@@ -836,7 +836,80 @@ func (p *Parser) parseArray() (Expression, error) {
 }
 
 func (p *Parser) parseHashLiteral() (Expression, error) {
-	return nil, nil
+
+	pairs, err := p.parseHashPairs()
+	if err != nil {
+		return nil, err
+	}
+
+	literal := &HashLiteral{
+		Token: *p.current,
+		Pairs: pairs,
+	}
+
+	return literal, nil
+}
+
+func (p *Parser) parseHashPairs() (map[Expression]Expression, error) {
+
+	pairs := make(map[Expression]Expression)
+
+	if p.next.Type == lexer.RightBrace {
+		err := p.nextToken()
+		if err != nil {
+			return nil, err
+		}
+		return pairs, nil
+	}
+
+	for {
+
+		// parse key, must be a string for now
+		peek, err := p.tryPeek(lexer.String)
+		if !peek || err != nil {
+			return nil, err
+		}
+
+		key, err := p.parseString()
+		if err != nil {
+			return nil, err
+		}
+
+		// parse the ':' separator
+		peek, err = p.tryPeek(lexer.Colon)
+		if !peek || err != nil {
+			return nil, err
+		}
+
+		err = p.nextToken()
+		if err != nil {
+			return nil, err
+		}
+
+		// parse value
+		exp, err := p.parseExpression(0)
+		if err != nil {
+			return nil, err
+		}
+
+		pairs[key] = exp
+
+		if p.next.Type != lexer.Comma {
+			break
+		}
+
+		err = p.nextToken()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	peek, err := p.tryPeek(lexer.RightBrace)
+	if !peek || err != nil {
+		return nil, err
+	}
+
+	return pairs, nil
 }
 
 func (p *Parser) tryPeek(tokenToken lexer.TokenType) (bool, error) {

@@ -140,3 +140,16 @@ func TestParseTemplateInScriptMode(t *testing.T) {
 		t.Fatal(fmt.Errorf("expected error"))
 	}
 }
+
+func TestParseHashLiteral(t *testing.T) {
+
+	input := `let h = { "name": "test", "age": 123 }`
+
+	l := lexer.NewScript(input)
+	p := New(l)
+
+	_, err := p.Parse()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
