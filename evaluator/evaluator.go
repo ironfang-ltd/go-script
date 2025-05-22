@@ -10,9 +10,7 @@ import (
 )
 
 var (
-	True  = &BooleanValue{Value: true}
-	False = &BooleanValue{Value: false}
-	Null  = &NullValue{}
+	Null = &NullValue{}
 )
 
 type Node interface {
@@ -148,7 +146,7 @@ func (e *Evaluator) evaluateNode(ctx *ExecutionContext, node Node, scope *Scope)
 			return nil, err
 		}
 
-		return e.evaluatePrefixExpression(ctx, n.Operator, right)
+		return e.evaluatePrefixExpression(n.Operator, right)
 	case *parser.InfixExpression:
 		left, err := e.evaluateNode(ctx, n.Left, scope)
 		if err != nil {
@@ -283,7 +281,7 @@ func (e *Evaluator) evaluateReturnStatement(ctx *ExecutionContext, ret *parser.R
 	return &ReturnValue{Value: val}, nil
 }
 
-func (e *Evaluator) evaluatePrefixExpression(ctx *ExecutionContext, operator string, right Object) (Object, error) {
+func (e *Evaluator) evaluatePrefixExpression(operator string, right Object) (Object, error) {
 	switch operator {
 	case "!":
 		return e.evaluateBangOperatorExpression(right)

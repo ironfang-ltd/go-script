@@ -16,17 +16,17 @@ func TestParseStringWithMissingEnd(t *testing.T) {
 		t.Fatal("expect error, got nil")
 	}
 
-	var lerr *TokenError
-	if !errors.As(err, &lerr) {
+	var tokenErr *TokenError
+	if !errors.As(err, &tokenErr) {
 		t.Fatal("expect TokenError, got nil")
 	}
 
-	if lerr.Line != 1 {
-		t.Fatalf("expect line 1, got %d", lerr.Line)
+	if tokenErr.Line != 1 {
+		t.Fatalf("expect line 1, got %d", tokenErr.Line)
 	}
 
-	if lerr.Column != 1 {
-		t.Fatalf("expect column 1, got %d", lerr.Column)
+	if tokenErr.Column != 1 {
+		t.Fatalf("expect column 1, got %d", tokenErr.Column)
 	}
 }
 
@@ -61,21 +61,21 @@ func TestParseStringWithNewLine(t *testing.T) {
 		t.Fatal("expect error, got nil")
 	}
 
-	var lerr *TokenError
-	if !errors.As(err, &lerr) {
+	var tokenErr *TokenError
+	if !errors.As(err, &tokenErr) {
 		t.Fatal("expect TokenError, got nil")
 	}
 
-	if lerr.Message != "unexpected character '\n'" {
-		t.Fatalf("expect message \"unexpected character '\n'\", got \"%s\"", lerr.Message)
+	if tokenErr.Message != "unexpected character '\n'" {
+		t.Fatalf("expect message \"unexpected character '\n'\", got \"%s\"", tokenErr.Message)
 	}
 
-	if lerr.Line != 1 {
-		t.Fatalf("expect line 1, got %d", lerr.Line)
+	if tokenErr.Line != 1 {
+		t.Fatalf("expect line 1, got %d", tokenErr.Line)
 	}
 
-	if lerr.Column != 8 {
-		t.Fatalf("expect column 8, got %d", lerr.Column)
+	if tokenErr.Column != 8 {
+		t.Fatalf("expect column 8, got %d", tokenErr.Column)
 	}
 }
 
@@ -169,14 +169,14 @@ func TestScriptLineAndColumn(t *testing.T) {
 	for {
 		token, err := l.Read()
 		if err != nil {
-			var lerr *TokenError
-			if errors.As(err, &lerr) {
-				if lerr.Column != 9 {
-					t.Fatalf("expect line 9, got %d\n", lerr.Column)
+			var tokenErr *TokenError
+			if errors.As(err, &tokenErr) {
+				if tokenErr.Column != 9 {
+					t.Fatalf("expect line 9, got %d\n", tokenErr.Column)
 				}
 
-				if lerr.Line != 2 {
-					t.Fatalf("expect line 2, got %d\n", lerr.Line)
+				if tokenErr.Line != 2 {
+					t.Fatalf("expect line 2, got %d\n", tokenErr.Line)
 				}
 
 				break
@@ -206,14 +206,14 @@ func TestTemplateLineAndColumn(t *testing.T) {
 	for {
 		token, err := l.Read()
 		if err != nil {
-			var lerr *TokenError
-			if errors.As(err, &lerr) {
-				if lerr.Column != 10 {
-					t.Fatalf("expect line 10, got %d\n", lerr.Column)
+			var tokenErr *TokenError
+			if errors.As(err, &tokenErr) {
+				if tokenErr.Column != 10 {
+					t.Fatalf("expect line 10, got %d\n", tokenErr.Column)
 				}
 
-				if lerr.Line != 1 {
-					t.Fatalf("expect line 1, got %d\n", lerr.Line)
+				if tokenErr.Line != 1 {
+					t.Fatalf("expect line 1, got %d\n", tokenErr.Line)
 				}
 
 				break
@@ -259,14 +259,14 @@ func TestTemplateLineAndColumnWithWhitespace(t *testing.T) {
 	for {
 		token, err := l.Read()
 		if err != nil {
-			var lerr *TokenError
-			if errors.As(err, &lerr) {
-				if lerr.Column != 11 {
-					t.Fatalf("expect line 11, got %d\n", lerr.Column)
+			var tokenErr *TokenError
+			if errors.As(err, &tokenErr) {
+				if tokenErr.Column != 11 {
+					t.Fatalf("expect line 11, got %d\n", tokenErr.Column)
 				}
 
-				if lerr.Line != 2 {
-					t.Fatalf("expect line 2, got %d\n", lerr.Line)
+				if tokenErr.Line != 2 {
+					t.Fatalf("expect line 2, got %d\n", tokenErr.Line)
 				}
 
 				break
