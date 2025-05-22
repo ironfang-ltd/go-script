@@ -80,6 +80,15 @@ func NewExecutionContext(program *parser.Program) *ExecutionContext {
 	}
 }
 
+func NewExecutionContextWithScope(program *parser.Program, rootScope *Scope) *ExecutionContext {
+	return &ExecutionContext{
+		Program:   program,
+		RootScope: rootScope,
+		Logger:    os.Stdout,
+		output:    &strings.Builder{},
+	}
+}
+
 func (e *Evaluator) Evaluate(ctx *ExecutionContext) (Object, error) {
 
 	var result Object = Null
