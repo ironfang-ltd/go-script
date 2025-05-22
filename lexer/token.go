@@ -20,6 +20,7 @@ const (
 	Float          TokenType = "FLOAT"
 	Plus           TokenType = "PLUS"
 	Minus          TokenType = "MINUS"
+	Modulo         TokenType = "MODULO"
 	Asterisk       TokenType = "ASTERISK"
 	Dot            TokenType = "DOT"
 	Slash          TokenType = "SLASH"

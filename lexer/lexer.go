@@ -174,6 +174,10 @@ func (l *Lexer) readScript() (Token, error) {
 			return token, nil
 		}
 
+		if token, ok := l.trySingle('%', Modulo); ok {
+			return token, nil
+		}
+
 		if token, ok := l.trySingle('*', Asterisk); ok {
 			return token, nil
 		}

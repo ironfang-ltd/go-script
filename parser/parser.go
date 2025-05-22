@@ -19,6 +19,7 @@ var Precedences = []lexer.TokenType{
 	lexer.Slash,
 	lexer.Asterisk,
 	lexer.Dot,
+	lexer.Modulo,
 	//
 	lexer.LeftParen,
 	lexer.LeftBrace,
