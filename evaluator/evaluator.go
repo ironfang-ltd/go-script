@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/ironfang-ltd/go-script/parser"
@@ -19,34 +20,30 @@ type Node interface {
 }
 
 type Evaluator struct {
-	funcs  map[string]*BuiltInFunction
-	output strings.Builder
-	log    io.StringWriter
+	functions map[string]*BuiltInFunction
 }
 
-func New(log io.StringWriter) *Evaluator {
+func New() *Evaluator {
 	e := &Evaluator{
-		funcs:  make(map[string]*BuiltInFunction),
-		output: strings.Builder{},
-		log:    log,
+		functions: make(map[string]*BuiltInFunction),
 	}
 
-	e.RegisterFunction("log", func(args ...Object) (Object, error) {
+	e.RegisterFunction("log", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
 		for _, arg := range args {
-			_, _ = e.log.WriteString(arg.Debug())
-			_, _ = e.log.WriteString("\n")
+			_, _ = ctx.Logger.WriteString(arg.Debug())
+			_, _ = ctx.Logger.WriteString("\n")
 		}
 		return Null, nil
 	})
 
-	e.RegisterFunction("print", func(args ...Object) (Object, error) {
+	e.RegisterFunction("print", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
 		for _, arg := range args {
-			e.output.WriteString(arg.Debug())
+			ctx.output.WriteString(arg.Debug())
 		}
 		return Null, nil
 	})
 
-	e.RegisterFunction("append", func(args ...Object) (Object, error) {
+	e.RegisterFunction("append", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
 
 		if len(args) != 2 {
 			return nil, fmt.Errorf("expected 2 arguments, got %d", len(args))
@@ -66,17 +63,31 @@ func New(log io.StringWriter) *Evaluator {
 }
 
 func (e *Evaluator) RegisterFunction(name string, fn Function) {
-	e.funcs[name] = &BuiltInFunction{Fn: fn}
+	e.functions[name] = &BuiltInFunction{Fn: fn}
 }
 
-func (e *Evaluator) Evaluate(program *parser.Program, scope *Scope) (Object, error) {
+type ExecutionContext struct {
+	Program   *parser.Program
+	RootScope *Scope
+	Logger    io.StringWriter
+	output    *strings.Builder
+}
 
-	e.output.Reset()
+func NewExecutionContext(program *parser.Program) *ExecutionContext {
+	return &ExecutionContext{
+		Program:   program,
+		RootScope: NewScope(),
+		Logger:    os.Stdout,
+		output:    &strings.Builder{},
+	}
+}
+
+func (e *Evaluator) Evaluate(ctx *ExecutionContext) (Object, error) {
 
 	var result Object = Null
 
-	for _, statement := range program.Statements {
-		evalResult, err := e.evaluateNode(statement, scope)
+	for _, statement := range ctx.Program.Statements {
+		evalResult, err := e.evaluateNode(ctx, statement, ctx.RootScope)
 		if err != nil {
 			return nil, err
 		}
@@ -85,34 +96,46 @@ func (e *Evaluator) Evaluate(program *parser.Program, scope *Scope) (Object, err
 			return evalResult, nil
 		}
 
-		if evalResult != nil && evalResult.Type() != NullObject && evalResult.Type() != ReturnValueObject && evalResult.Type() != FunctionObject {
-			e.output.WriteString(evalResult.Debug())
-		}
-
 		result = evalResult
 	}
 
 	return result, nil
 }
 
-func (e *Evaluator) GetOutput() string {
-	return e.output.String()
+func (e *Evaluator) EvaluateString(ctx *ExecutionContext) (string, error) {
+
+	for _, statement := range ctx.Program.Statements {
+		evalResult, err := e.evaluateNode(ctx, statement, ctx.RootScope)
+		if err != nil {
+			return "", err
+		}
+
+		if _, ok := evalResult.(*ReturnValue); ok {
+			return "", nil
+		}
+
+		if evalResult != nil && evalResult.Type() != NullObject && evalResult.Type() != ReturnValueObject && evalResult.Type() != FunctionObject {
+			ctx.output.WriteString(evalResult.Debug())
+		}
+	}
+
+	return ctx.output.String(), nil
 }
 
-func (e *Evaluator) evaluateNode(node Node, scope *Scope) (Object, error) {
+func (e *Evaluator) evaluateNode(ctx *ExecutionContext, node Node, scope *Scope) (Object, error) {
 	switch n := node.(type) {
 	case *parser.PrintStatement:
-		return e.evaluatePrintStatement(n)
+		return e.evaluatePrintStatement(ctx, n)
 	case *parser.BlockStatement:
-		return e.evaluateBlockStatement(n, scope)
+		return e.evaluateBlockStatement(ctx, n, scope)
 	case *parser.LetStatement:
-		return e.evaluateLetStatement(n, scope)
+		return e.evaluateLetStatement(ctx, n, scope)
 	case *parser.ReturnStatement:
-		return e.evaluateReturnStatement(n, scope)
+		return e.evaluateReturnStatement(ctx, n, scope)
 	case *parser.ExpressionStatement:
-		return e.evaluateNode(n.Expression, scope)
+		return e.evaluateNode(ctx, n.Expression, scope)
 	case *parser.ForeachExpression:
-		return e.evaluateForEach(n, scope)
+		return e.evaluateForEach(ctx, n, scope)
 	case *parser.IntegerLiteral:
 		return &IntegerValue{Value: n.Value}, nil
 	case *parser.BooleanLiteral:
@@ -120,83 +143,83 @@ func (e *Evaluator) evaluateNode(node Node, scope *Scope) (Object, error) {
 	case *parser.StringLiteral:
 		return &StringValue{Value: n.Value}, nil
 	case *parser.PrefixExpression:
-		right, err := e.evaluateNode(n.Right, scope)
+		right, err := e.evaluateNode(ctx, n.Right, scope)
 		if err != nil {
 			return nil, err
 		}
 
-		return e.evaluatePrefixExpression(n.Operator, right)
+		return e.evaluatePrefixExpression(ctx, n.Operator, right)
 	case *parser.InfixExpression:
-		left, err := e.evaluateNode(n.Left, scope)
+		left, err := e.evaluateNode(ctx, n.Left, scope)
 		if err != nil {
 			return nil, err
 		}
 
-		right, err := e.evaluateNode(n.Right, scope)
+		right, err := e.evaluateNode(ctx, n.Right, scope)
 		if err != nil {
 			return nil, err
 		}
 
 		return e.evaluateInfixExpression(n.Token.Source, left, right)
 	case *parser.IfExpression:
-		return e.evaluateIfExpression(n, scope)
+		return e.evaluateIfExpression(ctx, n, scope)
 	case *parser.Identifier:
 		return e.evaluateIdentifier(n, scope)
 	case *parser.FunctionLiteral:
 		return e.evaluateFunctionLiteral(n, scope)
 	case *parser.CallExpression:
-		return e.evaluateCallExpression(n, scope)
+		return e.evaluateCallExpression(ctx, n, scope)
 	case *parser.ArrayLiteral:
-		return e.evaluateArrayLiteral(n, scope)
+		return e.evaluateArrayLiteral(ctx, n, scope)
 	case *parser.IndexExpression:
 
-		left, err := e.evaluateNode(n.Left, scope)
+		left, err := e.evaluateNode(ctx, n.Left, scope)
 		if err != nil {
 			return nil, err
 		}
 
-		index, err := e.evaluateNode(n.Index, scope)
+		index, err := e.evaluateNode(ctx, n.Index, scope)
 		if err != nil {
 			return nil, err
 		}
 		return e.evaluateIndexExpression(left, index)
 	case *parser.HashLiteral:
-		return e.evaluateHashLiteral(n, scope)
+		return e.evaluateHashLiteral(ctx, n, scope)
 	case *parser.PropertyExpression:
-		return e.evaluatePropertyExpression(n, scope)
+		return e.evaluatePropertyExpression(ctx, n, scope)
 
 	default:
 		return nil, fmt.Errorf("unknown node type: %T", n)
 	}
 }
 
-func (e *Evaluator) evaluatePrintStatement(print *parser.PrintStatement) (Object, error) {
-	e.output.WriteString(print.Value)
+func (e *Evaluator) evaluatePrintStatement(ctx *ExecutionContext, print *parser.PrintStatement) (Object, error) {
+	ctx.output.WriteString(print.Value)
 	return Null, nil
 }
 
-func (e *Evaluator) evaluateForEach(foreach *parser.ForeachExpression, scope *Scope) (Object, error) {
-	iterable, err := e.evaluateNode(foreach.Iterable, scope)
+func (e *Evaluator) evaluateForEach(ctx *ExecutionContext, foreach *parser.ForeachExpression, scope *Scope) (Object, error) {
+	iterable, err := e.evaluateNode(ctx, foreach.Iterable, scope)
 	if err != nil {
 		return nil, err
 	}
 
 	switch i := iterable.(type) {
 	case *ArrayValue:
-		return e.evaluateArrayForEach(foreach, i, scope)
+		return e.evaluateArrayForEach(ctx, foreach, i, scope)
 	case *HashValue:
-		return e.evaluateHashForEach(foreach, i, scope)
+		return e.evaluateHashForEach(ctx, foreach, i, scope)
 	default:
 		return Null, nil
 	}
 }
 
-func (e *Evaluator) evaluateArrayForEach(foreach *parser.ForeachExpression, array *ArrayValue, scope *Scope) (Object, error) {
+func (e *Evaluator) evaluateArrayForEach(ctx *ExecutionContext, foreach *parser.ForeachExpression, array *ArrayValue, scope *Scope) (Object, error) {
 	for _, el := range array.Elements {
 		extendedScope := NewChildScope(scope)
 		extendedScope.Set(foreach.Variable.Value, el)
 
-		_, err := e.evaluateBlockStatement(foreach.Body, extendedScope)
+		_, err := e.evaluateBlockStatement(ctx, foreach.Body, extendedScope)
 		if err != nil {
 			return nil, err
 		}
@@ -205,12 +228,12 @@ func (e *Evaluator) evaluateArrayForEach(foreach *parser.ForeachExpression, arra
 	return Null, nil
 }
 
-func (e *Evaluator) evaluateHashForEach(foreach *parser.ForeachExpression, hash *HashValue, scope *Scope) (Object, error) {
+func (e *Evaluator) evaluateHashForEach(ctx *ExecutionContext, foreach *parser.ForeachExpression, hash *HashValue, scope *Scope) (Object, error) {
 	for _, pair := range hash.Pairs {
 		extendedScope := NewChildScope(scope)
 		extendedScope.Set(foreach.Variable.Value, pair.Value)
 
-		_, err := e.evaluateBlockStatement(foreach.Body, extendedScope)
+		_, err := e.evaluateBlockStatement(ctx, foreach.Body, extendedScope)
 		if err != nil {
 			return nil, err
 		}
@@ -219,11 +242,11 @@ func (e *Evaluator) evaluateHashForEach(foreach *parser.ForeachExpression, hash 
 	return Null, nil
 }
 
-func (e *Evaluator) evaluateBlockStatement(block *parser.BlockStatement, scope *Scope) (Object, error) {
+func (e *Evaluator) evaluateBlockStatement(ctx *ExecutionContext, block *parser.BlockStatement, scope *Scope) (Object, error) {
 	var result Object
 
 	for _, statement := range block.Statements {
-		evalResult, err := e.evaluateNode(statement, scope)
+		evalResult, err := e.evaluateNode(ctx, statement, scope)
 		if err != nil {
 			return nil, err
 		}
@@ -240,8 +263,8 @@ func (e *Evaluator) evaluateBlockStatement(block *parser.BlockStatement, scope *
 	return result, nil
 }
 
-func (e *Evaluator) evaluateLetStatement(let *parser.LetStatement, scope *Scope) (Object, error) {
-	val, err := e.evaluateNode(let.Value, scope)
+func (e *Evaluator) evaluateLetStatement(ctx *ExecutionContext, let *parser.LetStatement, scope *Scope) (Object, error) {
+	val, err := e.evaluateNode(ctx, let.Value, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -251,8 +274,8 @@ func (e *Evaluator) evaluateLetStatement(let *parser.LetStatement, scope *Scope)
 	return val, nil
 }
 
-func (e *Evaluator) evaluateReturnStatement(ret *parser.ReturnStatement, scope *Scope) (Object, error) {
-	val, err := e.evaluateNode(ret.Value, scope)
+func (e *Evaluator) evaluateReturnStatement(ctx *ExecutionContext, ret *parser.ReturnStatement, scope *Scope) (Object, error) {
+	val, err := e.evaluateNode(ctx, ret.Value, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +283,7 @@ func (e *Evaluator) evaluateReturnStatement(ret *parser.ReturnStatement, scope *
 	return &ReturnValue{Value: val}, nil
 }
 
-func (e *Evaluator) evaluatePrefixExpression(operator string, right Object) (Object, error) {
+func (e *Evaluator) evaluatePrefixExpression(ctx *ExecutionContext, operator string, right Object) (Object, error) {
 	switch operator {
 	case "!":
 		return e.evaluateBangOperatorExpression(right)
@@ -373,18 +396,18 @@ func (e *Evaluator) evaluateStringInfixExpression(operator string, l, r *StringV
 	}
 }
 
-func (e *Evaluator) evaluateIfExpression(ie *parser.IfExpression, scope *Scope) (Object, error) {
-	condition, err := e.evaluateNode(ie.Condition, scope)
+func (e *Evaluator) evaluateIfExpression(ctx *ExecutionContext, ie *parser.IfExpression, scope *Scope) (Object, error) {
+	condition, err := e.evaluateNode(ctx, ie.Condition, scope)
 	if err != nil {
 		return nil, err
 	}
 
 	if isTruthy(condition) {
-		return e.evaluateNode(ie.Consequence, scope)
+		return e.evaluateNode(ctx, ie.Consequence, scope)
 	}
 
 	if ie.Alternative != nil {
-		return e.evaluateNode(ie.Alternative, scope)
+		return e.evaluateNode(ctx, ie.Alternative, scope)
 	}
 
 	return Null, nil
@@ -395,7 +418,7 @@ func (e *Evaluator) evaluateIdentifier(ident *parser.Identifier, scope *Scope) (
 		return val, nil
 	}
 
-	if builtin, ok := e.funcs[ident.Value]; ok {
+	if builtin, ok := e.functions[ident.Value]; ok {
 		return builtin, nil
 	}
 
@@ -418,25 +441,25 @@ func (e *Evaluator) evaluateFunctionLiteral(fl *parser.FunctionLiteral, scope *S
 	return fv, nil
 }
 
-func (e *Evaluator) evaluateCallExpression(ce *parser.CallExpression, scope *Scope) (Object, error) {
-	function, err := e.evaluateNode(ce.Function, scope)
+func (e *Evaluator) evaluateCallExpression(ctx *ExecutionContext, ce *parser.CallExpression, scope *Scope) (Object, error) {
+	function, err := e.evaluateNode(ctx, ce.Function, scope)
 	if err != nil {
 		return nil, err
 	}
 
-	args, err := e.evaluateExpressions(ce.Args, scope)
+	args, err := e.evaluateExpressions(ctx, ce.Args, scope)
 	if err != nil {
 		return nil, err
 	}
 
-	return e.applyFunction(function, args)
+	return e.applyFunction(ctx, scope, function, args)
 }
 
-func (e *Evaluator) evaluateExpressions(exps []parser.Expression, scope *Scope) ([]Object, error) {
+func (e *Evaluator) evaluateExpressions(ctx *ExecutionContext, exps []parser.Expression, scope *Scope) ([]Object, error) {
 	var result []Object
 
 	for _, exp := range exps {
-		evaluated, err := e.evaluateNode(exp, scope)
+		evaluated, err := e.evaluateNode(ctx, exp, scope)
 		if err != nil {
 			return nil, err
 		}
@@ -447,18 +470,18 @@ func (e *Evaluator) evaluateExpressions(exps []parser.Expression, scope *Scope) 
 	return result, nil
 }
 
-func (e *Evaluator) applyFunction(fn Object, args []Object) (Object, error) {
+func (e *Evaluator) applyFunction(ctx *ExecutionContext, scope *Scope, fn Object, args []Object) (Object, error) {
 	switch f := fn.(type) {
 	case *FunctionValue:
 		extendedScope := e.extendFunctionScope(f, args)
-		evaluated, err := e.evaluateNode(f.Body, extendedScope)
+		evaluated, err := e.evaluateNode(ctx, f.Body, extendedScope)
 		if err != nil {
 			return nil, err
 		}
 
 		return unwrapReturnValue(evaluated), nil
 	case *BuiltInFunction:
-		return f.Fn(args...)
+		return f.Fn(ctx, scope, args...)
 	default:
 		return nil, fmt.Errorf("not a function: %T", fn)
 	}
@@ -474,8 +497,8 @@ func (e *Evaluator) extendFunctionScope(f *FunctionValue, args []Object) *Scope 
 	return extended
 }
 
-func (e *Evaluator) evaluateArrayLiteral(al *parser.ArrayLiteral, scope *Scope) (Object, error) {
-	elements, err := e.evaluateExpressions(al.Elements, scope)
+func (e *Evaluator) evaluateArrayLiteral(ctx *ExecutionContext, al *parser.ArrayLiteral, scope *Scope) (Object, error) {
+	elements, err := e.evaluateExpressions(ctx, al.Elements, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -516,11 +539,11 @@ func (e *Evaluator) evaluateHashIndexExpression(hash *HashValue, index Object) (
 	return Null, nil
 }
 
-func (e *Evaluator) evaluateHashLiteral(hl *parser.HashLiteral, scope *Scope) (Object, error) {
+func (e *Evaluator) evaluateHashLiteral(ctx *ExecutionContext, hl *parser.HashLiteral, scope *Scope) (Object, error) {
 	pairs := make(map[HashKey]HashPair)
 
 	for keyNode, valueNode := range hl.Pairs {
-		key, err := e.evaluateNode(keyNode, scope)
+		key, err := e.evaluateNode(ctx, keyNode, scope)
 		if err != nil {
 			return nil, err
 		}
@@ -530,7 +553,7 @@ func (e *Evaluator) evaluateHashLiteral(hl *parser.HashLiteral, scope *Scope) (O
 			return nil, fmt.Errorf("unusable as hash key: %T", key)
 		}
 
-		value, err := e.evaluateNode(valueNode, scope)
+		value, err := e.evaluateNode(ctx, valueNode, scope)
 		if err != nil {
 			return nil, err
 		}
@@ -541,9 +564,9 @@ func (e *Evaluator) evaluateHashLiteral(hl *parser.HashLiteral, scope *Scope) (O
 	return &HashValue{Pairs: pairs}, nil
 }
 
-func (e *Evaluator) evaluatePropertyExpression(pe *parser.PropertyExpression, scope *Scope) (Object, error) {
+func (e *Evaluator) evaluatePropertyExpression(ctx *ExecutionContext, pe *parser.PropertyExpression, scope *Scope) (Object, error) {
 
-	left, err := e.evaluateNode(pe.Left, scope)
+	left, err := e.evaluateNode(ctx, pe.Left, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -575,7 +598,7 @@ func (e *Evaluator) evaluatePropertyExpression(pe *parser.PropertyExpression, sc
 			}
 
 			if indexIdent, ok := r.Left.(*parser.IndexExpression); ok {
-				indexValue, err := e.evaluateNode(indexIdent.Index, scope)
+				indexValue, err := e.evaluateNode(ctx, indexIdent.Index, scope)
 				if err != nil {
 					return nil, err
 				}

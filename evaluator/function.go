@@ -2,7 +2,7 @@ package evaluator
 
 import "github.com/ironfang-ltd/go-script/parser"
 
-type Function func(args ...Object) (Object, error)
+type Function func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error)
 
 type BuiltInFunction struct {
 	Fn Function

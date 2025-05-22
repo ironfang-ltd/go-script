@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-
 	"github.com/ironfang-ltd/go-script/evaluator"
 	"github.com/ironfang-ltd/go-script/lexer"
 	"github.com/ironfang-ltd/go-script/parser"
@@ -33,9 +31,9 @@ func main() {
 		fmt.Println(err)
 	} else {
 
-		eval := evaluator.New(os.Stdout)
+		eval := evaluator.New()
 
-		eval.RegisterFunction("count", func(args ...evaluator.Object) (evaluator.Object, error) {
+		eval.RegisterFunction("count", func(ctx *evaluator.ExecutionContext, scope *evaluator.Scope, args ...evaluator.Object) (evaluator.Object, error) {
 			if len(args) != 1 {
 				return evaluator.Null, fmt.Errorf("wrong number of arguments. got=%d, want=1", len(args))
 			}
@@ -48,8 +46,8 @@ func main() {
 			}
 		})
 
-		scope := evaluator.NewScope()
-		scope.Set("title", &evaluator.StringValue{Value: "Hello World"})
+		ctx := evaluator.NewExecutionContext(program)
+		ctx.RootScope.Set("title", &evaluator.StringValue{Value: "Hello World"})
 
 		hash := evaluator.NewHashValue()
 		hash.Set(&evaluator.StringValue{Value: "name"}, &evaluator.StringValue{Value: "Item #1"})
@@ -58,18 +56,17 @@ func main() {
 		hash3 := evaluator.NewHashValue()
 		hash3.Set(&evaluator.StringValue{Value: "name"}, &evaluator.StringValue{Value: "Item #3"})
 
-		scope.Set("items", &evaluator.ArrayValue{Elements: []evaluator.Object{
+		ctx.RootScope.Set("items", &evaluator.ArrayValue{Elements: []evaluator.Object{
 			hash,
 			hash2,
 			hash3,
 		}})
 
-		result, err := eval.Evaluate(program, scope)
+		result, err := eval.EvaluateString(ctx)
 		if err != nil {
 			fmt.Println(err)
 		} else {
-			fmt.Printf("Result: %s\n", result.Debug())
-			fmt.Println("Output:---\n", eval.GetOutput())
+			fmt.Println("Output:---\n", result)
 		}
 	}
 }

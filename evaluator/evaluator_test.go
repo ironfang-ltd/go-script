@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/ironfang-ltd/go-script/lexer"
 	"github.com/ironfang-ltd/go-script/parser"
-	"os"
 	"testing"
 )
 
@@ -19,10 +18,10 @@ func TestEvaluateReturn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := New(os.Stdout)
-	scope := NewScope()
+	e := New()
+	ctx := NewExecutionContext(program)
 
-	ret, err := e.Evaluate(program, scope)
+	ret, err := e.Evaluate(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,10 +46,10 @@ func TestEvaluateFnLiteral(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := New(os.Stdout)
-	scope := NewScope()
+	e := New()
+	ctx := NewExecutionContext(program)
 
-	ret, err := e.Evaluate(program, scope)
+	ret, err := e.Evaluate(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,8 +70,8 @@ func TestEvaluateScopeVariable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := New(os.Stdout)
-	scope := NewScope()
+	e := New()
+	ctx := NewExecutionContext(program)
 
 	v := NewFileValue("123", "files/123.png", "test.png", "image/png", 100)
 
@@ -82,9 +81,9 @@ func TestEvaluateScopeVariable(t *testing.T) {
 	parent := NewHashValue()
 	parent.Set(NewStringValue("parent2"), parent2)
 
-	scope.Set("parent", parent)
+	ctx.RootScope.Set("parent", parent)
 
-	ret, err := e.Evaluate(program, scope)
+	ret, err := e.Evaluate(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,9 +120,9 @@ return result;`
 		t.Fatal(err)
 	}
 
-	e := New(os.Stdout)
+	e := New()
 
-	e.RegisterFunction("object_query", func(args ...Object) (Object, error) {
+	e.RegisterFunction("object_query", func(_ *ExecutionContext, _ *Scope, args ...Object) (Object, error) {
 
 		if len(args) != 2 {
 			return nil, fmt.Errorf("object_query() expects 2 arguments")
@@ -170,12 +169,12 @@ return result;`
 		return nil, nil
 	})
 
-	scope := NewScope()
+	ctx := NewExecutionContext(program)
 	leadObj := NewHashValue()
 	leadObj.Set(NewStringValue("id"), NewStringValue("123"))
-	scope.Set("lead", leadObj)
+	ctx.RootScope.Set("lead", leadObj)
 
-	result, err := e.Evaluate(program, scope)
+	result, err := e.Evaluate(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
