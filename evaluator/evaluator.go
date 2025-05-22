@@ -68,6 +68,7 @@ type ExecutionContext struct {
 	Program   *parser.Program
 	RootScope *Scope
 	Logger    io.StringWriter
+	Metadata  map[string]any
 	output    *strings.Builder
 }
 
@@ -76,6 +77,7 @@ func NewExecutionContext(program *parser.Program) *ExecutionContext {
 		Program:   program,
 		RootScope: NewScope(),
 		Logger:    os.Stdout,
+		Metadata:  make(map[string]any),
 		output:    &strings.Builder{},
 	}
 }
@@ -85,6 +87,7 @@ func NewExecutionContextWithScope(program *parser.Program, rootScope *Scope) *Ex
 		Program:   program,
 		RootScope: rootScope,
 		Logger:    os.Stdout,
+		Metadata:  make(map[string]any),
 		output:    &strings.Builder{},
 	}
 }
