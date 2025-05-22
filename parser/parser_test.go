@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"github.com/ironfang-ltd/go-script/lexer"
 	"testing"
 )
@@ -124,5 +125,18 @@ func TestParseIfElseExpression(t *testing.T) {
 	_, err := p.Parse()
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestParseTemplateInScriptMode(t *testing.T) {
+
+	input := `{% address.street %}`
+
+	l := lexer.NewScript(input)
+	p := New(l)
+
+	_, err := p.Parse()
+	if err == nil {
+		t.Fatal(fmt.Errorf("expected error"))
 	}
 }
