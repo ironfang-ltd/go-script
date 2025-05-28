@@ -30,6 +30,14 @@ func (h *HashValue) Type() ObjectType {
 	return HashObject
 }
 
+func (h *HashValue) GetValue(key Hashable) (Object, bool) {
+	v, ok := h.Pairs[key.HashKey()]
+	if !ok {
+		return &NullValue{}, ok
+	}
+	return v.Value, ok
+}
+
 func (h *HashValue) HasKey(key Hashable) bool {
 	_, ok := h.Pairs[key.HashKey()]
 	return ok
