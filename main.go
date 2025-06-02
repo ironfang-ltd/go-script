@@ -47,7 +47,7 @@ func main() {
 		})
 
 		ctx := evaluator.NewExecutionContext(program)
-		ctx.RootScope.Set("title", &evaluator.StringValue{Value: "Hello World"})
+		ctx.RootScope.SetLocal("title", &evaluator.StringValue{Value: "Hello World"})
 
 		hash := evaluator.NewHashValue()
 		hash.Set(&evaluator.StringValue{Value: "name"}, &evaluator.StringValue{Value: "Item #1"})
@@ -56,7 +56,7 @@ func main() {
 		hash3 := evaluator.NewHashValue()
 		hash3.Set(&evaluator.StringValue{Value: "name"}, &evaluator.StringValue{Value: "Item #3"})
 
-		ctx.RootScope.Set("items", &evaluator.ArrayValue{Elements: []evaluator.Object{
+		ctx.RootScope.SetLocal("items", &evaluator.ArrayValue{Elements: []evaluator.Object{
 			hash,
 			hash2,
 			hash3,

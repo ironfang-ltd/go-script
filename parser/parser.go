@@ -22,7 +22,7 @@ var Precedences = []lexer.TokenType{
 	lexer.Modulo,
 	//
 	lexer.LeftParen,
-	lexer.LeftBrace,
+	lexer.LeftBracket,
 }
 
 type Program struct {
@@ -224,6 +224,44 @@ func (p *Parser) parseExpressionStatement() (*ExpressionStatement, error) {
 		Expression: expression,
 	}
 
+	if p.next.Type == lexer.Equal {
+
+		switch expression.(type) {
+		case *IndexExpression, *PropertyExpression, *Identifier:
+			err = p.nextToken()
+			if err != nil {
+				return nil, err
+			}
+
+			err = p.nextToken()
+			if err != nil {
+				return nil, err
+			}
+
+			right, err := p.parseExpression(0)
+			if right == nil || err != nil {
+				return nil, err
+			}
+
+			// This is an assignment statement
+			assignment := &AssignmentExpression{
+				Token: *p.current,
+				Left:  expression,
+				Right: right,
+			}
+
+			statement.Expression = assignment
+
+			err = p.nextToken()
+			if err != nil {
+				return nil, err
+			}
+
+			return statement, nil
+		}
+
+	}
+
 	if _, ok := expression.(*FunctionLiteral); ok {
 		return statement, nil
 	}
@@ -307,7 +345,7 @@ func (p *Parser) parseExpression(precedence int) (Expression, error) {
 			if err != nil {
 				return nil, err
 			}
-		case lexer.LeftBrace:
+		case lexer.LeftBracket:
 			err := p.nextToken()
 			if err != nil {
 				return nil, err
@@ -459,7 +497,7 @@ func (p *Parser) parseIndexExpression(left Expression) (Expression, error) {
 
 	expression.Index = exp
 
-	peek, err := p.tryPeek(lexer.RightBrace)
+	peek, err := p.tryPeek(lexer.RightBracket)
 	if !peek || err != nil {
 		return nil, err
 	}

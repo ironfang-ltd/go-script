@@ -140,6 +140,8 @@ func (e *Evaluator) evaluateNode(ctx *ExecutionContext, node Node, scope *Scope)
 		return e.evaluateBlockStatement(ctx, n, scope)
 	case *parser.LetStatement:
 		return e.evaluateLetStatement(ctx, n, scope)
+	case *parser.AssignmentExpression:
+		return e.evaluateAssignmentExpression(ctx, n, scope)
 	case *parser.ReturnStatement:
 		return e.evaluateReturnStatement(ctx, n, scope)
 	case *parser.ExpressionStatement:
@@ -196,7 +198,8 @@ func (e *Evaluator) evaluateNode(ctx *ExecutionContext, node Node, scope *Scope)
 	case *parser.HashLiteral:
 		return e.evaluateHashLiteral(ctx, n, scope)
 	case *parser.PropertyExpression:
-		return e.evaluatePropertyExpression(ctx, n, scope)
+		_, _, v, err := e.evaluatePropertyExpression(ctx, n, scope)
+		return v, err
 
 	default:
 		return nil, fmt.Errorf("unknown node type: %T", n)
@@ -227,7 +230,7 @@ func (e *Evaluator) evaluateForEach(ctx *ExecutionContext, foreach *parser.Forea
 func (e *Evaluator) evaluateArrayForEach(ctx *ExecutionContext, foreach *parser.ForeachExpression, array *ArrayValue, scope *Scope) (Object, error) {
 	for _, el := range array.Elements {
 		extendedScope := NewChildScope(scope)
-		extendedScope.Set(foreach.Variable.Value, el)
+		extendedScope.SetLocal(foreach.Variable.Value, el)
 
 		_, err := e.evaluateBlockStatement(ctx, foreach.Body, extendedScope)
 		if err != nil {
@@ -241,7 +244,7 @@ func (e *Evaluator) evaluateArrayForEach(ctx *ExecutionContext, foreach *parser.
 func (e *Evaluator) evaluateHashForEach(ctx *ExecutionContext, foreach *parser.ForeachExpression, hash *HashValue, scope *Scope) (Object, error) {
 	for _, pair := range hash.Pairs {
 		extendedScope := NewChildScope(scope)
-		extendedScope.Set(foreach.Variable.Value, pair.Value)
+		extendedScope.SetLocal(foreach.Variable.Value, pair.Value)
 
 		_, err := e.evaluateBlockStatement(ctx, foreach.Body, extendedScope)
 		if err != nil {
@@ -279,9 +282,94 @@ func (e *Evaluator) evaluateLetStatement(ctx *ExecutionContext, let *parser.LetS
 		return nil, err
 	}
 
-	scope.Set(let.Name.Value, val)
+	scope.SetLocal(let.Name.Value, val)
 
 	return val, nil
+}
+
+func (e *Evaluator) evaluateAssignmentExpression(ctx *ExecutionContext, assign *parser.AssignmentExpression, scope *Scope) (Object, error) {
+
+	if ident, ok := assign.Left.(*parser.Identifier); ok {
+
+		right, err := e.evaluateNode(ctx, assign.Right, scope)
+		if err != nil {
+			return nil, err
+		}
+
+		assigned := scope.Assign(ident.Value, right)
+		if !assigned {
+			return nil, fmt.Errorf("identifier not found in scope: %s", ident.Value)
+		}
+		return right, nil
+	}
+
+	if propExpr, ok := assign.Left.(*parser.PropertyExpression); ok {
+		parent, idx, _, err := e.evaluatePropertyExpression(ctx, propExpr, scope)
+		if err != nil {
+			return nil, err
+		}
+
+		if idx == Null || parent == Null {
+			return nil, nil // fmt.Errorf("property expression left side evaluated to null")
+		}
+
+		hashValue, ok := parent.(*HashValue)
+		if !ok {
+			return nil, fmt.Errorf("left side of property expression must be a hash, got %T", parent)
+		}
+
+		right, err := e.evaluateNode(ctx, assign.Right, scope)
+		if err != nil {
+			return nil, err
+		}
+
+		hashValue.Set(idx, right)
+
+		return right, nil
+	}
+
+	if indexExpr, ok := assign.Left.(*parser.IndexExpression); ok {
+
+		left, err := e.evaluateNode(ctx, indexExpr.Left, scope)
+		if err != nil {
+			return nil, err
+		}
+
+		index, err := e.evaluateNode(ctx, indexExpr.Index, scope)
+		if err != nil {
+			return nil, err
+		}
+
+		right, err := e.evaluateNode(ctx, assign.Right, scope)
+		if err != nil {
+			return nil, err
+		}
+
+		if left == Null || index == Null {
+			return nil, fmt.Errorf("index expression left side or index evaluated to null")
+		}
+
+		if arrayValue, ok := left.(*ArrayValue); ok {
+
+			if i, ok := index.(*IntegerValue); ok {
+				if i.Value < 0 || i.Value >= len(arrayValue.Elements) {
+					return nil, fmt.Errorf("index out of bounds: %d", i.Value)
+				}
+				arrayValue.Elements[i.Value] = right
+			} else {
+				return nil, fmt.Errorf("index must be an integer, got %T", index)
+			}
+
+		} else if hashValue, ok := left.(*HashValue); ok {
+			hashValue.Set(index, right)
+		} else {
+			return nil, fmt.Errorf("left side of index expression must be an array or hash, got %T", left)
+		}
+
+		return right, nil
+	}
+
+	return nil, fmt.Errorf("unknown expression type in assignment: %T", assign.Left)
 }
 
 func (e *Evaluator) evaluateReturnStatement(ctx *ExecutionContext, ret *parser.ReturnStatement, scope *Scope) (Object, error) {
@@ -445,7 +533,7 @@ func (e *Evaluator) evaluateFunctionLiteral(fl *parser.FunctionLiteral, scope *S
 			return nil, fmt.Errorf("identifier already defined in local scope: %s", fl.Identifier.Value)
 		}
 
-		scope.Set(fl.Identifier.Value, fv)
+		scope.SetLocal(fl.Identifier.Value, fv)
 	}
 
 	return fv, nil
@@ -501,7 +589,7 @@ func (e *Evaluator) extendFunctionScope(f *FunctionValue, args []Object) *Scope 
 	extended := NewChildScope(f.Scope)
 
 	for i, param := range f.Parameters {
-		extended.Set(param.Value, args[i])
+		extended.SetLocal(param.Value, args[i])
 	}
 
 	return extended
@@ -574,15 +662,15 @@ func (e *Evaluator) evaluateHashLiteral(ctx *ExecutionContext, hl *parser.HashLi
 	return &HashValue{Pairs: pairs}, nil
 }
 
-func (e *Evaluator) evaluatePropertyExpression(ctx *ExecutionContext, pe *parser.PropertyExpression, scope *Scope) (Object, error) {
+func (e *Evaluator) evaluatePropertyExpression(ctx *ExecutionContext, pe *parser.PropertyExpression, scope *Scope) (Object, Object, Object, error) {
 
 	left, err := e.evaluateNode(ctx, pe.Left, scope)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	if _, ok := left.(*HashValue); !ok {
-		return Null, nil
+		return Null, Null, Null, nil
 	}
 
 	right := pe.Property
@@ -594,12 +682,12 @@ func (e *Evaluator) evaluatePropertyExpression(ctx *ExecutionContext, pe *parser
 			if ident, ok := r.Left.(*parser.Identifier); ok {
 				leftValue, err := e.evaluateIndexExpression(left, &StringValue{Value: ident.Value})
 				if err != nil {
-					return nil, err
+					return nil, nil, nil, err
 				}
 
 				leftHash, ok := leftValue.(*HashValue)
 				if !ok {
-					return Null, nil
+					return Null, Null, Null, nil
 				}
 
 				left = leftHash
@@ -610,38 +698,44 @@ func (e *Evaluator) evaluatePropertyExpression(ctx *ExecutionContext, pe *parser
 			if indexIdent, ok := r.Left.(*parser.IndexExpression); ok {
 				indexValue, err := e.evaluateNode(ctx, indexIdent.Index, scope)
 				if err != nil {
-					return nil, err
+					return nil, nil, nil, err
 				}
 
 				leftIdentifier, ok := indexIdent.Left.(*parser.Identifier)
 				if !ok {
-					return Null, nil
+					return Null, Null, Null, nil
 				}
 
 				leftValue, err := e.evaluateIndexExpression(left, &StringValue{Value: leftIdentifier.Value})
 				if err != nil {
-					return nil, err
+					return nil, nil, nil, err
 				}
 
 				arrayObject, ok := leftValue.(*ArrayValue)
 				if !ok {
-					return Null, nil
+					return Null, Null, Null, nil
 				}
 
 				left, err = e.evaluateIndexExpression(arrayObject, indexValue)
 				if err != nil {
-					return nil, err
+					return nil, nil, nil, err
 				}
 
 				right = r.Property
 				break
 			}
 
-			return Null, nil
+			return Null, Null, Null, nil
 		case *parser.Identifier:
-			return e.evaluateIndexExpression(left, &StringValue{Value: r.Value})
+			idx := &StringValue{Value: r.Value}
+			v, err := e.evaluateIndexExpression(left, &StringValue{Value: r.Value})
+			if err != nil {
+				return nil, nil, nil, err
+			}
+
+			return left, idx, v, nil
 		default:
-			return Null, nil
+			return Null, Null, Null, nil
 		}
 	}
 }

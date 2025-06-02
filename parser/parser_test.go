@@ -30,6 +30,44 @@ func TestParseLetStatement(t *testing.T) {
 	}
 }
 
+func TestParseAssignmentStatement(t *testing.T) {
+
+	tests := []struct {
+		input string
+	}{
+		{"x[0] = 10;"},
+		{"x[0].z = 10;"},
+		{"x = 5;"},
+		{"y = true;"},
+		{"x.y = true;"},
+		{"x.y.z = 10;"},
+	}
+
+	for _, tt := range tests {
+		l := lexer.NewScript(tt.input)
+		p := New(l)
+
+		program, err := p.Parse()
+		if err != nil {
+			t.Fatalf("Parse(%s) = %v", tt.input, err)
+		}
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("Length(%s) = expected 1 statement, got %d", tt.input, len(program.Statements))
+		}
+
+		exp, ok := program.Statements[0].(*ExpressionStatement)
+		if !ok {
+			t.Fatalf("ExpressionStatement(%s) = expected ExpressionStatement, got %T", tt.input, program.Statements[0])
+		}
+
+		_, ok = exp.Expression.(*AssignmentExpression)
+		if !ok {
+			t.Fatalf("AssignmentExpression(%s) = expected AssignmentExpression, got %T", tt.input, program.Statements[0])
+		}
+	}
+}
+
 func TestParseReturnStatement(t *testing.T) {
 
 	tests := []struct {

@@ -26,6 +26,16 @@ func (ps *PrintStatement) Debug() string {
 	return "print " + ps.Value
 }
 
+type AssignmentExpression struct {
+	Token lexer.Token
+	Left  Expression
+	Right Expression
+}
+
+func (ls *AssignmentExpression) Debug() string {
+	return ls.Left.Debug() + " = " + ls.Right.Debug()
+}
+
 type LetStatement struct {
 	Token lexer.Token
 	Name  *Identifier
