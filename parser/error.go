@@ -10,7 +10,7 @@ import (
 type ParseError struct {
 	Message string
 	Source  string
-	Token   *lexer.Token
+	Token   lexer.Token
 }
 
 func (e *ParseError) Error() string {
@@ -32,7 +32,7 @@ func (e *ParseError) Error() string {
 	return sb.String()
 }
 
-func NewParseError(message, source string, token *lexer.Token) *ParseError {
+func NewParseError(message, source string, token lexer.Token) *ParseError {
 	return &ParseError{
 		Message: message,
 		Source:  source,

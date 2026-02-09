@@ -2,7 +2,6 @@ package lexer
 
 import (
 	"fmt"
-	"strings"
 )
 
 type Mode int
@@ -66,13 +65,13 @@ func (l *Lexer) Read() (Token, error) {
 	}
 
 	if l.mode == ModeTemplate {
-		if strings.HasPrefix(l.source[l.position:], ScriptStartToken) {
+		if l.source[l.position] == '{' && l.position+1 < len(l.source) && l.source[l.position+1] == '%' {
 			start := l.position
 			col := l.col
-			l.position += len(ScriptStartToken)
-			l.col += len(ScriptStartToken)
+			l.position += 2
+			l.col += 2
 			l.mode = ModeScript
-			return NewToken(ScriptStart, ScriptStartToken, start, l.line, col), nil
+			return NewToken(ScriptStart, l.source[start:l.position], start, l.line, col), nil
 		}
 
 		return l.readTemplate()
@@ -86,12 +85,8 @@ func (l *Lexer) readTemplate() (Token, error) {
 	col := l.col
 	line := l.line
 
-	for {
-		if l.position >= len(l.source) {
-			break
-		}
-
-		if strings.HasPrefix(l.source[l.position:], ScriptStartToken) {
+	for l.position < len(l.source) {
+		if l.source[l.position] == '{' && l.position+1 < len(l.source) && l.source[l.position+1] == '%' {
 			break
 		}
 
@@ -115,122 +110,134 @@ func (l *Lexer) readScript() (Token, error) {
 			return NewToken(EndOfFile, "", l.position, l.line, l.col), nil
 		}
 
-		if l.source[l.position] == '\n' {
+		ch := l.source[l.position]
+
+		if ch == '\n' {
 			l.position++
 			l.line++
 			l.col = 1
 			continue
 		}
 
-		if l.parseTemplate {
-			if token, ok := l.trySequence("%}", ScriptEnd); ok {
+		pos := l.position
+		col := l.col
+		line := l.line
+
+		switch ch {
+		case '(':
+			l.position++
+			l.col++
+			return NewToken(LeftParen, l.source[pos:l.position], pos, line, col), nil
+		case ')':
+			l.position++
+			l.col++
+			return NewToken(RightParen, l.source[pos:l.position], pos, line, col), nil
+		case '{':
+			l.position++
+			l.col++
+			return NewToken(LeftBrace, l.source[pos:l.position], pos, line, col), nil
+		case '}':
+			l.position++
+			l.col++
+			return NewToken(RightBrace, l.source[pos:l.position], pos, line, col), nil
+		case '[':
+			l.position++
+			l.col++
+			return NewToken(LeftBracket, l.source[pos:l.position], pos, line, col), nil
+		case ']':
+			l.position++
+			l.col++
+			return NewToken(RightBracket, l.source[pos:l.position], pos, line, col), nil
+		case '.':
+			l.position++
+			l.col++
+			return NewToken(Dot, l.source[pos:l.position], pos, line, col), nil
+		case ',':
+			l.position++
+			l.col++
+			return NewToken(Comma, l.source[pos:l.position], pos, line, col), nil
+		case ':':
+			l.position++
+			l.col++
+			return NewToken(Colon, l.source[pos:l.position], pos, line, col), nil
+		case ';':
+			l.position++
+			l.col++
+			return NewToken(Semicolon, l.source[pos:l.position], pos, line, col), nil
+		case '+':
+			l.position++
+			l.col++
+			return NewToken(Plus, l.source[pos:l.position], pos, line, col), nil
+		case '-':
+			l.position++
+			l.col++
+			return NewToken(Minus, l.source[pos:l.position], pos, line, col), nil
+		case '*':
+			l.position++
+			l.col++
+			return NewToken(Asterisk, l.source[pos:l.position], pos, line, col), nil
+		case '/':
+			l.position++
+			l.col++
+			return NewToken(Slash, l.source[pos:l.position], pos, line, col), nil
+		case '%':
+			if l.parseTemplate && l.position+1 < len(l.source) && l.source[l.position+1] == '}' {
+				l.position += 2
+				l.col += 2
 				l.mode = ModeTemplate
+				return NewToken(ScriptEnd, l.source[pos:l.position], pos, line, col), nil
+			}
+			l.position++
+			l.col++
+			return NewToken(Modulo, l.source[pos:l.position], pos, line, col), nil
+		case '=':
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '=' {
+				l.position += 2
+				l.col += 2
+				return NewToken(Equals, l.source[pos:l.position], pos, line, col), nil
+			}
+			l.position++
+			l.col++
+			return NewToken(Equal, l.source[pos:l.position], pos, line, col), nil
+		case '!':
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '=' {
+				l.position += 2
+				l.col += 2
+				return NewToken(NotEqual, l.source[pos:l.position], pos, line, col), nil
+			}
+			l.position++
+			l.col++
+			return NewToken(Bang, l.source[pos:l.position], pos, line, col), nil
+		case '<':
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '=' {
+				l.position += 2
+				l.col += 2
+				return NewToken(LessOrEqual, l.source[pos:l.position], pos, line, col), nil
+			}
+			l.position++
+			l.col++
+			return NewToken(LessThan, l.source[pos:l.position], pos, line, col), nil
+		case '>':
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '=' {
+				l.position += 2
+				l.col += 2
+				return NewToken(GreaterOrEqual, l.source[pos:l.position], pos, line, col), nil
+			}
+			l.position++
+			l.col++
+			return NewToken(GreaterThan, l.source[pos:l.position], pos, line, col), nil
+		case '"':
+			token, _, err := l.tryString('"', String)
+			return token, err
+		default:
+			if ch >= '0' && ch <= '9' {
+				token, _ := l.tryNumber()
 				return token, nil
 			}
-		}
-
-		if token, ok := l.trySingle('(', LeftParen); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle(')', RightParen); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('{', LeftBrace); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('}', RightBrace); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('[', LeftBracket); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle(']', RightBracket); ok {
-			return token, nil
-		}
-
-		if token, ok, err := l.tryString('"', String); ok || err != nil {
-			return token, err
-		}
-
-		if token, ok := l.trySingle('.', Dot); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle(',', Comma); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle(':', Colon); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle(';', Semicolon); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('+', Plus); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('-', Minus); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('%', Modulo); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('*', Asterisk); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('/', Slash); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("==", Equals); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("!=", NotEqual); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('=', Equal); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('!', Bang); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("<=", LessOrEqual); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence(">=", GreaterOrEqual); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('<', LessThan); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySingle('>', GreaterThan); ok {
-			return token, nil
-		}
-
-		if token, ok := l.tryNumber(); ok {
-			return token, nil
-		}
-
-		if token, ok := l.tryIdentifierOrKeyword(); ok {
-			return token, nil
+			if ch == '_' || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') {
+				token, _ := l.tryIdentifierOrKeyword()
+				return token, nil
+			}
 		}
 
 		break
@@ -250,36 +257,6 @@ func (l *Lexer) consumeWhitespace() {
 		l.position++
 		l.col++
 	}
-}
-
-func (l *Lexer) trySingle(c byte, tokenType TokenType) (Token, bool) {
-
-	pos := l.position
-	col := l.col
-	line := l.line
-
-	if l.source[l.position] == c {
-		l.position++
-		l.col++
-		return NewToken(tokenType, l.source[pos:l.position], pos, line, col), true
-	}
-
-	return TokenNone, false
-}
-
-func (l *Lexer) trySequence(seq string, tokenType TokenType) (Token, bool) {
-
-	pos := l.position
-	col := l.col
-	line := l.line
-
-	if strings.HasPrefix(l.source[l.position:], seq) {
-		l.position += len(seq)
-		l.col += len(seq)
-		return NewToken(tokenType, l.source[pos:l.position], pos, line, col), true
-	}
-
-	return TokenNone, false
 }
 
 func (l *Lexer) tryString(quote byte, tokenType TokenType) (Token, bool, error) {

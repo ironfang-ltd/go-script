@@ -3,7 +3,8 @@
     "allow": [
       "Bash(go test:*)",
       "Bash(go version:*)",
-      "Bash(go list:*)"
+      "Bash(go list:*)",
+      "Bash(go build:*)"
     ]
   }
 }

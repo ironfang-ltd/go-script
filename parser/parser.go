@@ -45,9 +45,9 @@ func (p *Program) Debug() string {
 
 type Parser struct {
 	l       *lexer.Lexer
-	prev    *lexer.Token
-	current *lexer.Token
-	next    *lexer.Token
+	prev    lexer.Token
+	current lexer.Token
+	next    lexer.Token
 	errors  []error
 }
 
@@ -141,7 +141,7 @@ func (p *Parser) parseTextStatement() (*PrintStatement, error) {
 func (p *Parser) parseLetStatement() (*LetStatement, error) {
 
 	statement := &LetStatement{
-		Token: *p.current,
+		Token: p.current,
 	}
 
 	peek, err := p.tryPeek(lexer.Identifier)
@@ -150,7 +150,7 @@ func (p *Parser) parseLetStatement() (*LetStatement, error) {
 	}
 
 	statement.Name = &Identifier{
-		Token: *p.current,
+		Token: p.current,
 		Value: p.current.Source,
 	}
 
@@ -191,7 +191,7 @@ func (p *Parser) parseLetStatement() (*LetStatement, error) {
 
 func (p *Parser) parseReturnStatement() (*ReturnStatement, error) {
 	statement := &ReturnStatement{
-		Token: *p.current,
+		Token: p.current,
 	}
 
 	err := p.nextToken()
@@ -245,7 +245,7 @@ func (p *Parser) parseExpressionStatement() (*ExpressionStatement, error) {
 
 			// This is an assignment statement
 			assignment := &AssignmentExpression{
-				Token: *p.current,
+				Token: p.current,
 				Left:  expression,
 				Right: right,
 			}
@@ -391,7 +391,7 @@ func (p *Parser) parsePrefixExpression() (Expression, error) {
 		fallthrough
 	case lexer.Minus:
 		expression := &PrefixExpression{
-			Token:    *p.current,
+			Token:    p.current,
 			Operator: p.current.Source,
 		}
 
@@ -428,7 +428,7 @@ func (p *Parser) parsePrefixExpression() (Expression, error) {
 func (p *Parser) parseInfixExpression(left Expression) (Expression, error) {
 
 	infix := &InfixExpression{
-		Token: *p.current,
+		Token: p.current,
 		Left:  left,
 	}
 
@@ -452,7 +452,7 @@ func (p *Parser) parseInfixExpression(left Expression) (Expression, error) {
 func (p *Parser) parseAccessExpression(left Expression) (Expression, error) {
 
 	expression := &PropertyExpression{
-		Token: *p.current,
+		Token: p.current,
 		Left:  left,
 	}
 
@@ -462,7 +462,7 @@ func (p *Parser) parseAccessExpression(left Expression) (Expression, error) {
 	}
 
 	expression.Property = &Identifier{
-		Token: *p.current,
+		Token: p.current,
 		Value: p.current.Source,
 	}
 
@@ -476,7 +476,7 @@ func (p *Parser) parseCallExpression(left Expression) (Expression, error) {
 	}
 
 	expression := &CallExpression{
-		Token:    *p.current,
+		Token:    p.current,
 		Function: left,
 		Args:     args,
 	}
@@ -487,7 +487,7 @@ func (p *Parser) parseCallExpression(left Expression) (Expression, error) {
 func (p *Parser) parseIndexExpression(left Expression) (Expression, error) {
 
 	expression := &IndexExpression{
-		Token: *p.current,
+		Token: p.current,
 		Left:  left,
 	}
 
@@ -527,13 +527,13 @@ func (p *Parser) peekPrecedence() int {
 
 func (p *Parser) parseIdentifier() (*Identifier, error) {
 	return &Identifier{
-		Token: *p.current,
+		Token: p.current,
 		Value: p.current.Source,
 	}, nil
 }
 
 func (p *Parser) parseInteger() (Expression, error) {
-	literal := &IntegerLiteral{Token: *p.current}
+	literal := &IntegerLiteral{Token: p.current}
 
 	i, err := strconv.ParseInt(p.current.Source, 10, 64)
 	if err != nil {
@@ -546,7 +546,7 @@ func (p *Parser) parseInteger() (Expression, error) {
 }
 
 func (p *Parser) parseFloat() (Expression, error) {
-	literal := &FloatLiteral{Token: *p.current}
+	literal := &FloatLiteral{Token: p.current}
 
 	f, err := strconv.ParseFloat(p.current.Source, 64)
 	if err != nil {
@@ -560,7 +560,7 @@ func (p *Parser) parseFloat() (Expression, error) {
 
 func (p *Parser) parseString() (Expression, error) {
 
-	literal := &StringLiteral{Token: *p.current}
+	literal := &StringLiteral{Token: p.current}
 
 	raw := p.current.Source[1 : len(p.current.Source)-1]
 
@@ -595,7 +595,7 @@ func (p *Parser) parseString() (Expression, error) {
 
 func (p *Parser) parseBoolean() (Expression, error) {
 
-	literal := &BooleanLiteral{Token: *p.current}
+	literal := &BooleanLiteral{Token: p.current}
 
 	if p.current.Type == lexer.True {
 		literal.Value = true
@@ -631,7 +631,7 @@ func (p *Parser) parseGroupedExpression() (Expression, error) {
 func (p *Parser) parseIfExpression() (Expression, error) {
 
 	expression := &IfExpression{
-		Token: *p.current,
+		Token: p.current,
 	}
 
 	peek, err := p.tryPeek(lexer.LeftParen)
@@ -681,7 +681,7 @@ func (p *Parser) parseIfExpression() (Expression, error) {
 func (p *Parser) parseForeachExpression() (Expression, error) {
 
 	expression := &ForeachExpression{
-		Token: *p.current,
+		Token: p.current,
 	}
 
 	peek, err := p.tryPeek(lexer.LeftParen)
@@ -729,7 +729,7 @@ func (p *Parser) parseForeachExpression() (Expression, error) {
 func (p *Parser) parseBlockStatement() *BlockStatement {
 
 	block := &BlockStatement{
-		Token: *p.current,
+		Token: p.current,
 	}
 
 	err := p.nextToken()
@@ -778,7 +778,7 @@ func (p *Parser) parseFunctionParameters() ([]*Identifier, error) {
 	}
 
 	identifiers = append(identifiers, &Identifier{
-		Token: *p.current,
+		Token: p.current,
 		Value: p.current.Source,
 	})
 
@@ -793,7 +793,7 @@ func (p *Parser) parseFunctionParameters() ([]*Identifier, error) {
 		}
 
 		identifiers = append(identifiers, &Identifier{
-			Token: *p.current,
+			Token: p.current,
 			Value: p.current.Source,
 		})
 	}
@@ -809,7 +809,7 @@ func (p *Parser) parseFunctionParameters() ([]*Identifier, error) {
 func (p *Parser) parseFunctionLiteral() (Expression, error) {
 
 	literal := &FunctionLiteral{
-		Token: *p.current,
+		Token: p.current,
 	}
 
 	peek, err := p.tryPeek(lexer.Identifier)
@@ -818,7 +818,7 @@ func (p *Parser) parseFunctionLiteral() (Expression, error) {
 	}
 
 	literal.Identifier = &Identifier{
-		Token: *p.current,
+		Token: p.current,
 		Value: p.current.Source,
 	}
 
@@ -899,7 +899,7 @@ func (p *Parser) parseArray() (Expression, error) {
 	}
 
 	literal := &ArrayLiteral{
-		Token:    *p.current,
+		Token:    p.current,
 		Elements: exp,
 	}
 
@@ -914,7 +914,7 @@ func (p *Parser) parseHashLiteral() (Expression, error) {
 	}
 
 	literal := &HashLiteral{
-		Token: *p.current,
+		Token: p.current,
 		Pairs: pairs,
 	}
 
@@ -1009,6 +1009,6 @@ func (p *Parser) nextToken() error {
 		return err
 	}
 
-	p.next = &next
+	p.next = next
 	return nil
 }
