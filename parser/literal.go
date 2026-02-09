@@ -57,6 +57,15 @@ func (fl *FunctionLiteral) Debug() string {
 	return sb.String()
 }
 
+type FloatLiteral struct {
+	Token lexer.Token
+	Value float64
+}
+
+func (fl *FloatLiteral) Debug() string {
+	return fl.Token.Source
+}
+
 type ArrayLiteral struct {
 	Token    lexer.Token
 	Elements []Expression

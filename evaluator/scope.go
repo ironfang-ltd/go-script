@@ -37,16 +37,15 @@ func (s *Scope) Assign(name string, val Object) bool {
 		// if the variable is not found in the current scope,
 		// check the parent scope if it exists
 		if s.parent != nil {
-			s.parent.Assign(name, val)
+			return s.parent.Assign(name, val)
 		}
-	} else {
-		// if the variable is found in the current scope,
-		// update its value
-		s.store[name] = val
-		return true
+		return false
 	}
 
-	return false
+	// if the variable is found in the current scope,
+	// update its value
+	s.store[name] = val
+	return true
 }
 
 func (s *Scope) SetLocal(name string, val Object) {

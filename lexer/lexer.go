@@ -16,6 +16,18 @@ const (
 	ScriptStartToken = "{%"
 )
 
+var keywords = map[string]TokenType{
+	"as":      As,
+	"let":     Let,
+	"fn":      Function,
+	"return":  Return,
+	"true":    True,
+	"false":   False,
+	"if":      If,
+	"else":    Else,
+	"foreach": Foreach,
+}
+
 type Lexer struct {
 	source        string
 	position      int
@@ -109,10 +121,6 @@ func (l *Lexer) readScript() (Token, error) {
 			l.col = 1
 			continue
 		}
-
-		pos := l.position
-		col := l.col
-		line := l.line
 
 		if l.parseTemplate {
 			if token, ok := l.trySequence("%}", ScriptEnd); ok {
@@ -217,48 +225,12 @@ func (l *Lexer) readScript() (Token, error) {
 			return token, nil
 		}
 
-		if token, ok := l.trySequence("as", As); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("let", Let); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("fn", Function); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("return", Return); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("true", True); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("false", False); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("if", If); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("else", Else); ok {
-			return token, nil
-		}
-
-		if token, ok := l.trySequence("foreach", Foreach); ok {
-			return token, nil
-		}
-
 		if token, ok := l.tryNumber(); ok {
 			return token, nil
 		}
 
-		if l.tryIdentifier() {
-			return NewToken(Identifier, l.source[pos:l.position], pos, line, col), nil
+		if token, ok := l.tryIdentifierOrKeyword(); ok {
+			return token, nil
 		}
 
 		break
@@ -325,25 +297,28 @@ func (l *Lexer) tryString(quote byte, tokenType TokenType) (Token, bool, error) 
 
 	for {
 		if l.position >= len(l.source) {
-			return TokenNone, false, NewTokenError("unexpected end of file when parsing string", l.source, line, col)
+			return TokenNone, false, NewTokenError("unterminated string literal", l.source, line, col)
+		}
+
+		if l.source[l.position] == '\\' {
+			// Skip escape sequence (backslash + next character)
+			l.position++
+			l.col++
+			if l.position < len(l.source) {
+				l.position++
+				l.col++
+			}
+			continue
 		}
 
 		if l.source[l.position] == quote {
-
-			// check for escaped quote
-			if l.position > 0 && l.source[l.position-1] == '\\' {
-				l.position++
-				l.col++
-				continue
-			}
-
 			l.position++
 			l.col++
 			return NewToken(tokenType, l.source[pos:l.position], pos, line, col), true, nil
 		}
 
 		if l.source[l.position] == '\n' {
-			return TokenNone, false, nil
+			return TokenNone, false, NewTokenError("unterminated string literal", l.source, line, col)
 		}
 
 		l.position++
@@ -355,6 +330,7 @@ func (l *Lexer) tryNumber() (Token, bool) {
 
 	ok := false
 	tokenType := Integer
+	hasDot := false
 
 	pos := l.position
 	col := l.col
@@ -372,12 +348,16 @@ func (l *Lexer) tryNumber() (Token, bool) {
 			continue
 		}
 
-		if l.source[l.position] == '.' {
-			l.position++
-			l.col++
-			tokenType = Float
-			ok = true
-			continue
+		if l.source[l.position] == '.' && !hasDot {
+			// Only consume dot if followed by a digit
+			if l.position+1 < len(l.source) && l.source[l.position+1] >= '0' && l.source[l.position+1] <= '9' {
+				l.position++
+				l.col++
+				tokenType = Float
+				hasDot = true
+				continue
+			}
+			break
 		}
 
 		break
@@ -390,32 +370,31 @@ func (l *Lexer) tryNumber() (Token, bool) {
 	return NewToken(tokenType, l.source[pos:l.position], pos, line, col), true
 }
 
-func (l *Lexer) tryIdentifier() bool {
+func (l *Lexer) tryIdentifierOrKeyword() (Token, bool) {
 
-	ok := false
+	pos := l.position
+	col := l.col
+	line := l.line
 
 	c := l.source[l.position]
-
-	if c >= '0' && c <= '9' {
-		return false
+	if !(c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+		return TokenNone, false
 	}
 
-	for {
-		if l.position >= len(l.source) {
-			break
-		}
-
+	for l.position < len(l.source) {
 		c = l.source[l.position]
-
 		if c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
 			l.position++
 			l.col++
-			ok = true
 			continue
 		}
-
 		break
 	}
 
-	return ok
+	word := l.source[pos:l.position]
+	if tokenType, ok := keywords[word]; ok {
+		return NewToken(tokenType, word, pos, line, col), true
+	}
+
+	return NewToken(Identifier, word, pos, line, col), true
 }

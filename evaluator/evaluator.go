@@ -49,7 +49,7 @@ func New() *Evaluator {
 
 		arrValue, ok := args[0].(*ArrayValue)
 		if !ok {
-			return nil, fmt.Errorf("expected array, got %s", arrValue.Type())
+			return nil, fmt.Errorf("expected array, got %s", args[0].Type())
 		}
 
 		arrValue.Elements = append(arrValue.Elements, args[1])
@@ -150,6 +150,8 @@ func (e *Evaluator) evaluateNode(ctx *ExecutionContext, node Node, scope *Scope)
 		return e.evaluateForEach(ctx, n, scope)
 	case *parser.IntegerLiteral:
 		return &IntegerValue{Value: n.Value}, nil
+	case *parser.FloatLiteral:
+		return &DecimalValue{Value: n.Value}, nil
 	case *parser.BooleanLiteral:
 		return &BooleanValue{Value: n.Value}, nil
 	case *parser.StringLiteral:
@@ -405,6 +407,8 @@ func (e *Evaluator) evaluateMinusPrefixOperatorExpression(right Object) (Object,
 	switch r := right.(type) {
 	case *IntegerValue:
 		return &IntegerValue{Value: -r.Value}, nil
+	case *DecimalValue:
+		return &DecimalValue{Value: -r.Value}, nil
 	default:
 		return nil, fmt.Errorf("unknown operator: -%T", r)
 	}
@@ -421,6 +425,12 @@ func (e *Evaluator) evaluateInfixExpression(operator string, left, right Object)
 	if b1, ok := left.(*BooleanValue); ok {
 		if b2, ok := right.(*BooleanValue); ok {
 			return e.evaluateBooleanInfixExpression(operator, b1, b2)
+		}
+	}
+
+	if d1, ok := left.(*DecimalValue); ok {
+		if d2, ok := right.(*DecimalValue); ok {
+			return e.evaluateDecimalInfixExpression(operator, d1, d2)
 		}
 	}
 
@@ -455,11 +465,54 @@ func (e *Evaluator) evaluateIntegerInfixExpression(operator string, l, r *Intege
 	case "*":
 		return &IntegerValue{Value: l.Value * r.Value}, nil
 	case "/":
+		if r.Value == 0 {
+			return nil, fmt.Errorf("division by zero")
+		}
 		return &IntegerValue{Value: l.Value / r.Value}, nil
+	case "%":
+		if r.Value == 0 {
+			return nil, fmt.Errorf("division by zero")
+		}
+		return &IntegerValue{Value: l.Value % r.Value}, nil
 	case "<":
 		return &BooleanValue{Value: l.Value < r.Value}, nil
 	case ">":
 		return &BooleanValue{Value: l.Value > r.Value}, nil
+	case "<=":
+		return &BooleanValue{Value: l.Value <= r.Value}, nil
+	case ">=":
+		return &BooleanValue{Value: l.Value >= r.Value}, nil
+	case "==":
+		return &BooleanValue{Value: l.Value == r.Value}, nil
+	case "!=":
+		return &BooleanValue{Value: l.Value != r.Value}, nil
+	default:
+		return nil, fmt.Errorf("unknown operator: %s", operator)
+	}
+}
+
+func (e *Evaluator) evaluateDecimalInfixExpression(operator string, l, r *DecimalValue) (Object, error) {
+
+	switch operator {
+	case "+":
+		return &DecimalValue{Value: l.Value + r.Value}, nil
+	case "-":
+		return &DecimalValue{Value: l.Value - r.Value}, nil
+	case "*":
+		return &DecimalValue{Value: l.Value * r.Value}, nil
+	case "/":
+		if r.Value == 0 {
+			return nil, fmt.Errorf("division by zero")
+		}
+		return &DecimalValue{Value: l.Value / r.Value}, nil
+	case "<":
+		return &BooleanValue{Value: l.Value < r.Value}, nil
+	case ">":
+		return &BooleanValue{Value: l.Value > r.Value}, nil
+	case "<=":
+		return &BooleanValue{Value: l.Value <= r.Value}, nil
+	case ">=":
+		return &BooleanValue{Value: l.Value >= r.Value}, nil
 	case "==":
 		return &BooleanValue{Value: l.Value == r.Value}, nil
 	case "!=":
@@ -571,6 +624,9 @@ func (e *Evaluator) evaluateExpressions(ctx *ExecutionContext, exps []parser.Exp
 func (e *Evaluator) applyFunction(ctx *ExecutionContext, scope *Scope, fn Object, args []Object) (Object, error) {
 	switch f := fn.(type) {
 	case *FunctionValue:
+		if len(args) != len(f.Parameters) {
+			return nil, fmt.Errorf("wrong number of arguments: expected %d, got %d", len(f.Parameters), len(args))
+		}
 		extendedScope := e.extendFunctionScope(f, args)
 		evaluated, err := e.evaluateNode(ctx, f.Body, extendedScope)
 		if err != nil {

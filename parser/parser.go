@@ -8,21 +8,21 @@ import (
 	"strings"
 )
 
-var Precedences = []lexer.TokenType{
-	lexer.None,
-	lexer.Equals,
-	lexer.NotEqual,
-	lexer.LessThan,
-	lexer.GreaterThan,
-	lexer.Plus,
-	lexer.Minus,
-	lexer.Slash,
-	lexer.Asterisk,
-	lexer.Dot,
-	lexer.Modulo,
-	//
-	lexer.LeftParen,
-	lexer.LeftBracket,
+var Precedences = map[lexer.TokenType]int{
+	lexer.Equals:         1,
+	lexer.NotEqual:       1,
+	lexer.LessThan:       2,
+	lexer.GreaterThan:    2,
+	lexer.LessOrEqual:    2,
+	lexer.GreaterOrEqual: 2,
+	lexer.Plus:           3,
+	lexer.Minus:          3,
+	lexer.Slash:          4,
+	lexer.Asterisk:       4,
+	lexer.Modulo:         4,
+	lexer.Dot:            5,
+	lexer.LeftParen:      6,
+	lexer.LeftBracket:    6,
 }
 
 type Program struct {
@@ -175,8 +175,8 @@ func (p *Parser) parseLetStatement() (*LetStatement, error) {
 
 		p.errors = append(p.errors,
 			NewParseError(
-				fmt.Sprintf("expected %s, %s or %s, got %s", lexer.Semicolon, lexer.ScriptEnd, lexer.EndOfFile, p.current.Type),
-				p.l.GetSource(), p.current))
+				fmt.Sprintf("expected %s, %s or %s, got %s", lexer.Semicolon, lexer.ScriptEnd, lexer.EndOfFile, p.next.Type),
+				p.l.GetSource(), p.next))
 
 		return nil, nil
 	}
@@ -309,6 +309,8 @@ func (p *Parser) parseExpression(precedence int) (Expression, error) {
 			fallthrough
 		case lexer.Slash:
 			fallthrough
+		case lexer.Modulo:
+			fallthrough
 		case lexer.Equals:
 			fallthrough
 		case lexer.NotEqual:
@@ -316,6 +318,10 @@ func (p *Parser) parseExpression(precedence int) (Expression, error) {
 		case lexer.GreaterThan:
 			fallthrough
 		case lexer.LessThan:
+			fallthrough
+		case lexer.GreaterOrEqual:
+			fallthrough
+		case lexer.LessOrEqual:
 			err := p.nextToken()
 			if err != nil {
 				return nil, err
@@ -373,6 +379,8 @@ func (p *Parser) parsePrefixExpression() (Expression, error) {
 		return p.parseIdentifier()
 	case lexer.Integer:
 		return p.parseInteger()
+	case lexer.Float:
+		return p.parseFloat()
 	case lexer.String:
 		return p.parseString()
 	case lexer.True:
@@ -453,12 +461,10 @@ func (p *Parser) parseAccessExpression(left Expression) (Expression, error) {
 		return nil, err
 	}
 
-	exp, err := p.parseExpression(0)
-	if err != nil {
-		return nil, err
+	expression.Property = &Identifier{
+		Token: *p.current,
+		Value: p.current.Source,
 	}
-
-	expression.Property = exp
 
 	return expression, nil
 }
@@ -506,24 +512,16 @@ func (p *Parser) parseIndexExpression(left Expression) (Expression, error) {
 }
 
 func (p *Parser) currentPrecedence() int {
-
-	for i := 0; i < len(Precedences); i++ {
-		if Precedences[i] == p.current.Type {
-			return i
-		}
+	if prec, ok := Precedences[p.current.Type]; ok {
+		return prec
 	}
-
 	return 0
 }
 
 func (p *Parser) peekPrecedence() int {
-
-	for i := 0; i < len(Precedences); i++ {
-		if Precedences[i] == p.next.Type {
-			return i
-		}
+	if prec, ok := Precedences[p.next.Type]; ok {
+		return prec
 	}
-
 	return 0
 }
 
@@ -547,17 +545,50 @@ func (p *Parser) parseInteger() (Expression, error) {
 	return literal, nil
 }
 
+func (p *Parser) parseFloat() (Expression, error) {
+	literal := &FloatLiteral{Token: *p.current}
+
+	f, err := strconv.ParseFloat(p.current.Source, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	literal.Value = f
+
+	return literal, nil
+}
+
 func (p *Parser) parseString() (Expression, error) {
 
 	literal := &StringLiteral{Token: *p.current}
 
-	v := strings.Trim(p.current.Source, "\"")
+	raw := p.current.Source[1 : len(p.current.Source)-1]
 
-	v = strings.ReplaceAll(v, "\\n", "\n")
-	v = strings.ReplaceAll(v, "\\r", "\r")
-	v = strings.ReplaceAll(v, "\\t", "\t")
+	var sb strings.Builder
+	for i := 0; i < len(raw); i++ {
+		if raw[i] == '\\' && i+1 < len(raw) {
+			i++
+			switch raw[i] {
+			case 'n':
+				sb.WriteByte('\n')
+			case 'r':
+				sb.WriteByte('\r')
+			case 't':
+				sb.WriteByte('\t')
+			case '\\':
+				sb.WriteByte('\\')
+			case '"':
+				sb.WriteByte('"')
+			default:
+				sb.WriteByte('\\')
+				sb.WriteByte(raw[i])
+			}
+		} else {
+			sb.WriteByte(raw[i])
+		}
+	}
 
-	literal.Value = v
+	literal.Value = sb.String()
 
 	return literal, nil
 }
@@ -783,10 +814,12 @@ func (p *Parser) parseFunctionLiteral() (Expression, error) {
 
 	peek, err := p.tryPeek(lexer.Identifier)
 	if !peek || err != nil {
-		literal.Identifier, err = p.parseIdentifier()
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
+	}
+
+	literal.Identifier = &Identifier{
+		Token: *p.current,
+		Value: p.current.Source,
 	}
 
 	peek, err = p.tryPeek(lexer.LeftParen)
