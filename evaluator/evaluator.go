@@ -3,9 +3,12 @@ package evaluator
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
+	"strconv"
 	"strings"
 
+	"github.com/ironfang-ltd/go-script/lexer"
 	"github.com/ironfang-ltd/go-script/parser"
 )
 
@@ -52,9 +55,391 @@ func New() *Evaluator {
 			return nil, fmt.Errorf("expected array, got %s", args[0].Type())
 		}
 
+		if ctx.MaxArraySize > 0 && len(arrValue.Elements) >= ctx.MaxArraySize {
+			return nil, fmt.Errorf("maximum array size exceeded: %d", ctx.MaxArraySize)
+		}
+
 		arrValue.Elements = append(arrValue.Elements, args[1])
 
 		return arrValue, nil
+	})
+
+	e.RegisterFunction("len", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("len: expected 1 argument, got %d", len(args))
+		}
+		switch v := args[0].(type) {
+		case *StringValue:
+			return &IntegerValue{Value: len(v.Value)}, nil
+		case *ArrayValue:
+			return &IntegerValue{Value: len(v.Elements)}, nil
+		case *HashValue:
+			return &IntegerValue{Value: len(v.Pairs)}, nil
+		default:
+			return nil, fmt.Errorf("len: unsupported type %s", args[0].Type())
+		}
+	})
+
+	e.RegisterFunction("split", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("split: expected 2 arguments, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("split: first argument must be a string, got %s", args[0].Type())
+		}
+		delim, ok := args[1].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("split: second argument must be a string, got %s", args[1].Type())
+		}
+		parts := strings.Split(str.Value, delim.Value)
+		elements := make([]Object, len(parts))
+		for i, p := range parts {
+			elements[i] = &StringValue{Value: p}
+		}
+		return &ArrayValue{Elements: elements}, nil
+	})
+
+	e.RegisterFunction("trim", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("trim: expected 1 argument, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("trim: argument must be a string, got %s", args[0].Type())
+		}
+		return &StringValue{Value: strings.TrimSpace(str.Value)}, nil
+	})
+
+	e.RegisterFunction("toUpper", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("toUpper: expected 1 argument, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("toUpper: argument must be a string, got %s", args[0].Type())
+		}
+		return &StringValue{Value: strings.ToUpper(str.Value)}, nil
+	})
+
+	e.RegisterFunction("toLower", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("toLower: expected 1 argument, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("toLower: argument must be a string, got %s", args[0].Type())
+		}
+		return &StringValue{Value: strings.ToLower(str.Value)}, nil
+	})
+
+	e.RegisterFunction("contains", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("contains: expected 2 arguments, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("contains: first argument must be a string, got %s", args[0].Type())
+		}
+		substr, ok := args[1].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("contains: second argument must be a string, got %s", args[1].Type())
+		}
+		return &BooleanValue{Value: strings.Contains(str.Value, substr.Value)}, nil
+	})
+
+	e.RegisterFunction("startsWith", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("startsWith: expected 2 arguments, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("startsWith: first argument must be a string, got %s", args[0].Type())
+		}
+		prefix, ok := args[1].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("startsWith: second argument must be a string, got %s", args[1].Type())
+		}
+		return &BooleanValue{Value: strings.HasPrefix(str.Value, prefix.Value)}, nil
+	})
+
+	e.RegisterFunction("endsWith", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("endsWith: expected 2 arguments, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("endsWith: first argument must be a string, got %s", args[0].Type())
+		}
+		suffix, ok := args[1].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("endsWith: second argument must be a string, got %s", args[1].Type())
+		}
+		return &BooleanValue{Value: strings.HasSuffix(str.Value, suffix.Value)}, nil
+	})
+
+	e.RegisterFunction("indexOf", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("indexOf: expected 2 arguments, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("indexOf: first argument must be a string, got %s", args[0].Type())
+		}
+		substr, ok := args[1].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("indexOf: second argument must be a string, got %s", args[1].Type())
+		}
+		return &IntegerValue{Value: strings.Index(str.Value, substr.Value)}, nil
+	})
+
+	e.RegisterFunction("replace", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 3 {
+			return nil, fmt.Errorf("replace: expected 3 arguments, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("replace: first argument must be a string, got %s", args[0].Type())
+		}
+		old, ok := args[1].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("replace: second argument must be a string, got %s", args[1].Type())
+		}
+		newStr, ok := args[2].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("replace: third argument must be a string, got %s", args[2].Type())
+		}
+		return &StringValue{Value: strings.ReplaceAll(str.Value, old.Value, newStr.Value)}, nil
+	})
+
+	e.RegisterFunction("substring", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) < 2 || len(args) > 3 {
+			return nil, fmt.Errorf("substring: expected 2 or 3 arguments, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("substring: first argument must be a string, got %s", args[0].Type())
+		}
+		start, ok := args[1].(*IntegerValue)
+		if !ok {
+			return nil, fmt.Errorf("substring: second argument must be an integer, got %s", args[1].Type())
+		}
+		s := start.Value
+		if s < 0 {
+			s = 0
+		}
+		if s > len(str.Value) {
+			s = len(str.Value)
+		}
+		end := len(str.Value)
+		if len(args) == 3 {
+			endVal, ok := args[2].(*IntegerValue)
+			if !ok {
+				return nil, fmt.Errorf("substring: third argument must be an integer, got %s", args[2].Type())
+			}
+			end = endVal.Value
+			if end < s {
+				end = s
+			}
+			if end > len(str.Value) {
+				end = len(str.Value)
+			}
+		}
+		return &StringValue{Value: str.Value[s:end]}, nil
+	})
+
+	e.RegisterFunction("keys", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("keys: expected 1 argument, got %d", len(args))
+		}
+		hash, ok := args[0].(*HashValue)
+		if !ok {
+			return nil, fmt.Errorf("keys: argument must be a hash, got %s", args[0].Type())
+		}
+		ordered := hash.OrderedPairs()
+		elements := make([]Object, 0, len(ordered))
+		for _, pair := range ordered {
+			elements = append(elements, pair.Key)
+		}
+		return &ArrayValue{Elements: elements}, nil
+	})
+
+	e.RegisterFunction("values", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("values: expected 1 argument, got %d", len(args))
+		}
+		hash, ok := args[0].(*HashValue)
+		if !ok {
+			return nil, fmt.Errorf("values: argument must be a hash, got %s", args[0].Type())
+		}
+		ordered := hash.OrderedPairs()
+		elements := make([]Object, 0, len(ordered))
+		for _, pair := range ordered {
+			elements = append(elements, pair.Value)
+		}
+		return &ArrayValue{Elements: elements}, nil
+	})
+
+	e.RegisterFunction("type", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("type: expected 1 argument, got %d", len(args))
+		}
+		return &StringValue{Value: string(args[0].Type())}, nil
+	})
+
+	e.RegisterFunction("toString", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("toString: expected 1 argument, got %d", len(args))
+		}
+		return &StringValue{Value: args[0].Debug()}, nil
+	})
+
+	e.RegisterFunction("parseInt", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("parseInt: expected 1 argument, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("parseInt: argument must be a string, got %s", args[0].Type())
+		}
+		val, err := strconv.ParseInt(str.Value, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parseInt: %s", err)
+		}
+		return &IntegerValue{Value: int(val)}, nil
+	})
+
+	e.RegisterFunction("parseFloat", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("parseFloat: expected 1 argument, got %d", len(args))
+		}
+		str, ok := args[0].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("parseFloat: argument must be a string, got %s", args[0].Type())
+		}
+		val, err := strconv.ParseFloat(str.Value, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parseFloat: %s", err)
+		}
+		return &DecimalValue{Value: val}, nil
+	})
+
+	e.RegisterFunction("join", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("join: expected 2 arguments, got %d", len(args))
+		}
+		arr, ok := args[0].(*ArrayValue)
+		if !ok {
+			return nil, fmt.Errorf("join: first argument must be an array, got %s", args[0].Type())
+		}
+		sep, ok := args[1].(*StringValue)
+		if !ok {
+			return nil, fmt.Errorf("join: second argument must be a string, got %s", args[1].Type())
+		}
+		parts := make([]string, len(arr.Elements))
+		for i, el := range arr.Elements {
+			parts[i] = el.Debug()
+		}
+		return &StringValue{Value: strings.Join(parts, sep.Value)}, nil
+	})
+
+	e.RegisterFunction("map", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("map: expected 2 arguments, got %d", len(args))
+		}
+		arr, ok := args[0].(*ArrayValue)
+		if !ok {
+			return nil, fmt.Errorf("map: first argument must be an array, got %s", args[0].Type())
+		}
+		result := make([]Object, len(arr.Elements))
+		for i, el := range arr.Elements {
+			val, err := e.applyFunction(ctx, scope, args[1], []Object{el})
+			if err != nil {
+				return nil, err
+			}
+			result[i] = val
+		}
+		return &ArrayValue{Elements: result}, nil
+	})
+
+	e.RegisterFunction("filter", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("filter: expected 2 arguments, got %d", len(args))
+		}
+		arr, ok := args[0].(*ArrayValue)
+		if !ok {
+			return nil, fmt.Errorf("filter: first argument must be an array, got %s", args[0].Type())
+		}
+		var result []Object
+		for _, el := range arr.Elements {
+			val, err := e.applyFunction(ctx, scope, args[1], []Object{el})
+			if err != nil {
+				return nil, err
+			}
+			if isTruthy(val) {
+				result = append(result, el)
+			}
+		}
+		return &ArrayValue{Elements: result}, nil
+	})
+
+	e.RegisterFunction("floor", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("floor: expected 1 argument, got %d", len(args))
+		}
+		switch v := args[0].(type) {
+		case *IntegerValue:
+			return v, nil
+		case *DecimalValue:
+			return &IntegerValue{Value: int(math.Floor(v.Value))}, nil
+		default:
+			return nil, fmt.Errorf("floor: argument must be a number, got %s", args[0].Type())
+		}
+	})
+
+	e.RegisterFunction("ceil", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("ceil: expected 1 argument, got %d", len(args))
+		}
+		switch v := args[0].(type) {
+		case *IntegerValue:
+			return v, nil
+		case *DecimalValue:
+			return &IntegerValue{Value: int(math.Ceil(v.Value))}, nil
+		default:
+			return nil, fmt.Errorf("ceil: argument must be a number, got %s", args[0].Type())
+		}
+	})
+
+	e.RegisterFunction("round", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("round: expected 1 argument, got %d", len(args))
+		}
+		switch v := args[0].(type) {
+		case *IntegerValue:
+			return v, nil
+		case *DecimalValue:
+			return &IntegerValue{Value: int(math.Round(v.Value))}, nil
+		default:
+			return nil, fmt.Errorf("round: argument must be a number, got %s", args[0].Type())
+		}
+	})
+
+	e.RegisterFunction("abs", func(ctx *ExecutionContext, scope *Scope, args ...Object) (Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("abs: expected 1 argument, got %d", len(args))
+		}
+		switch v := args[0].(type) {
+		case *IntegerValue:
+			if v.Value < 0 {
+				return &IntegerValue{Value: -v.Value}, nil
+			}
+			return v, nil
+		case *DecimalValue:
+			return &DecimalValue{Value: math.Abs(v.Value)}, nil
+		default:
+			return nil, fmt.Errorf("abs: argument must be a number, got %s", args[0].Type())
+		}
 	})
 
 	return e
@@ -65,31 +450,50 @@ func (e *Evaluator) RegisterFunction(name string, fn Function) {
 }
 
 type ExecutionContext struct {
-	Program   *parser.Program
-	RootScope *Scope
-	Logger    io.StringWriter
-	Metadata  map[string]any
-	output    *strings.Builder
+	Program      *parser.Program
+	RootScope    *Scope
+	Logger       io.StringWriter
+	Metadata     map[string]any
+	Source       string
+	MaxSteps     int
+	MaxDepth     int
+	MaxArraySize int
+	steps        int
+	depth        int
+	output       *strings.Builder
 }
 
 func NewExecutionContext(program *parser.Program) *ExecutionContext {
 	return &ExecutionContext{
-		Program:   program,
-		RootScope: NewScope(),
-		Logger:    os.Stdout,
-		Metadata:  make(map[string]any),
-		output:    &strings.Builder{},
+		Program:      program,
+		RootScope:    NewScope(),
+		Logger:       os.Stdout,
+		Metadata:     make(map[string]any),
+		MaxSteps:     100_000,
+		MaxDepth:     256,
+		MaxArraySize: 10_000,
+		output:       &strings.Builder{},
 	}
 }
 
 func NewExecutionContextWithScope(program *parser.Program, rootScope *Scope) *ExecutionContext {
 	return &ExecutionContext{
-		Program:   program,
-		RootScope: rootScope,
-		Logger:    os.Stdout,
-		Metadata:  make(map[string]any),
-		output:    &strings.Builder{},
+		Program:      program,
+		RootScope:    rootScope,
+		Logger:       os.Stdout,
+		Metadata:     make(map[string]any),
+		MaxSteps:     100_000,
+		MaxDepth:     256,
+		MaxArraySize: 10_000,
+		output:       &strings.Builder{},
 	}
+}
+
+func runtimeError(ctx *ExecutionContext, token lexer.Token, message string) error {
+	if ctx.Source != "" {
+		return NewRuntimeError(message, ctx.Source, token.Line, token.Column)
+	}
+	return fmt.Errorf("%s", message)
 }
 
 func (e *Evaluator) Evaluate(ctx *ExecutionContext) (Object, error) {
@@ -124,7 +528,7 @@ func (e *Evaluator) EvaluateString(ctx *ExecutionContext) (string, error) {
 			return "", nil
 		}
 
-		if evalResult != nil && evalResult.Type() != NullObject && evalResult.Type() != ReturnValueObject && evalResult.Type() != FunctionObject {
+		if evalResult != nil && evalResult.Type() != NullObject && evalResult.Type() != ReturnValueObject && evalResult.Type() != FunctionObject && evalResult.Type() != BreakSignalObject && evalResult.Type() != ContinueSignalObject {
 			ctx.output.WriteString(evalResult.Debug())
 		}
 	}
@@ -133,6 +537,13 @@ func (e *Evaluator) EvaluateString(ctx *ExecutionContext) (string, error) {
 }
 
 func (e *Evaluator) evaluateNode(ctx *ExecutionContext, node Node, scope *Scope) (Object, error) {
+	if ctx.MaxSteps > 0 {
+		ctx.steps++
+		if ctx.steps > ctx.MaxSteps {
+			return nil, fmt.Errorf("execution limit exceeded: %d steps", ctx.MaxSteps)
+		}
+	}
+
 	switch n := node.(type) {
 	case *parser.PrintStatement:
 		return e.evaluatePrintStatement(ctx, n)
@@ -163,7 +574,46 @@ func (e *Evaluator) evaluateNode(ctx *ExecutionContext, node Node, scope *Scope)
 		}
 
 		return e.evaluatePrefixExpression(n.Operator, right)
+	case *parser.NullLiteral:
+		return Null, nil
+	case *parser.WhileExpression:
+		return e.evaluateWhileExpression(ctx, n, scope)
+	case *parser.BreakStatement:
+		return &BreakSignal{}, nil
+	case *parser.ContinueStatement:
+		return &ContinueSignal{}, nil
 	case *parser.InfixExpression:
+		// Short-circuit for &&, ||, ??
+		switch n.Token.Source {
+		case "&&":
+			left, err := e.evaluateNode(ctx, n.Left, scope)
+			if err != nil {
+				return nil, err
+			}
+			if !isTruthy(left) {
+				return left, nil
+			}
+			return e.evaluateNode(ctx, n.Right, scope)
+		case "||":
+			left, err := e.evaluateNode(ctx, n.Left, scope)
+			if err != nil {
+				return nil, err
+			}
+			if isTruthy(left) {
+				return left, nil
+			}
+			return e.evaluateNode(ctx, n.Right, scope)
+		case "??":
+			left, err := e.evaluateNode(ctx, n.Left, scope)
+			if err != nil {
+				return nil, err
+			}
+			if _, isNull := left.(*NullValue); !isNull {
+				return left, nil
+			}
+			return e.evaluateNode(ctx, n.Right, scope)
+		}
+
 		left, err := e.evaluateNode(ctx, n.Left, scope)
 		if err != nil {
 			return nil, err
@@ -174,11 +624,11 @@ func (e *Evaluator) evaluateNode(ctx *ExecutionContext, node Node, scope *Scope)
 			return nil, err
 		}
 
-		return e.evaluateInfixExpression(n.Token.Source, left, right)
+		return e.evaluateInfixExpression(ctx, n.Token, left, right)
 	case *parser.IfExpression:
 		return e.evaluateIfExpression(ctx, n, scope)
 	case *parser.Identifier:
-		return e.evaluateIdentifier(n, scope)
+		return e.evaluateIdentifier(ctx, n, scope)
 	case *parser.FunctionLiteral:
 		return e.evaluateFunctionLiteral(n, scope)
 	case *parser.CallExpression:
@@ -230,13 +680,26 @@ func (e *Evaluator) evaluateForEach(ctx *ExecutionContext, foreach *parser.Forea
 }
 
 func (e *Evaluator) evaluateArrayForEach(ctx *ExecutionContext, foreach *parser.ForeachExpression, array *ArrayValue, scope *Scope) (Object, error) {
-	for _, el := range array.Elements {
+	for i, el := range array.Elements {
 		extendedScope := NewChildScope(scope)
 		extendedScope.SetLocal(foreach.Variable.Value, el)
+		if foreach.Index != nil {
+			extendedScope.SetLocal(foreach.Index.Value, &IntegerValue{Value: i})
+		}
 
-		_, err := e.evaluateBlockStatement(ctx, foreach.Body, extendedScope)
+		result, err := e.evaluateBlockStatement(ctx, foreach.Body, extendedScope)
 		if err != nil {
 			return nil, err
+		}
+
+		if _, ok := result.(*BreakSignal); ok {
+			break
+		}
+		if _, ok := result.(*ContinueSignal); ok {
+			continue
+		}
+		if _, ok := result.(*ReturnValue); ok {
+			return result, nil
 		}
 	}
 
@@ -244,13 +707,56 @@ func (e *Evaluator) evaluateArrayForEach(ctx *ExecutionContext, foreach *parser.
 }
 
 func (e *Evaluator) evaluateHashForEach(ctx *ExecutionContext, foreach *parser.ForeachExpression, hash *HashValue, scope *Scope) (Object, error) {
-	for _, pair := range hash.Pairs {
+	for _, pair := range hash.OrderedPairs() {
 		extendedScope := NewChildScope(scope)
 		extendedScope.SetLocal(foreach.Variable.Value, pair.Value)
+		if foreach.Index != nil {
+			extendedScope.SetLocal(foreach.Index.Value, pair.Key)
+		}
 
-		_, err := e.evaluateBlockStatement(ctx, foreach.Body, extendedScope)
+		result, err := e.evaluateBlockStatement(ctx, foreach.Body, extendedScope)
 		if err != nil {
 			return nil, err
+		}
+
+		if _, ok := result.(*BreakSignal); ok {
+			break
+		}
+		if _, ok := result.(*ContinueSignal); ok {
+			continue
+		}
+		if _, ok := result.(*ReturnValue); ok {
+			return result, nil
+		}
+	}
+
+	return Null, nil
+}
+
+func (e *Evaluator) evaluateWhileExpression(ctx *ExecutionContext, we *parser.WhileExpression, scope *Scope) (Object, error) {
+	for {
+		condition, err := e.evaluateNode(ctx, we.Condition, scope)
+		if err != nil {
+			return nil, err
+		}
+
+		if !isTruthy(condition) {
+			break
+		}
+
+		result, err := e.evaluateBlockStatement(ctx, we.Body, scope)
+		if err != nil {
+			return nil, err
+		}
+
+		if _, ok := result.(*BreakSignal); ok {
+			break
+		}
+		if _, ok := result.(*ContinueSignal); ok {
+			continue
+		}
+		if _, ok := result.(*ReturnValue); ok {
+			return result, nil
 		}
 	}
 
@@ -266,9 +772,9 @@ func (e *Evaluator) evaluateBlockStatement(ctx *ExecutionContext, block *parser.
 			return nil, err
 		}
 
-		// If the statement is a return statement, we should return the value
-		// immediately.
-		if _, ok := evalResult.(*ReturnValue); ok {
+		// Propagate signals immediately
+		switch evalResult.(type) {
+		case *ReturnValue, *BreakSignal, *ContinueSignal:
 			return evalResult, nil
 		}
 
@@ -300,7 +806,7 @@ func (e *Evaluator) evaluateAssignmentExpression(ctx *ExecutionContext, assign *
 
 		assigned := scope.Assign(ident.Value, right)
 		if !assigned {
-			return nil, fmt.Errorf("identifier not found in scope: %s", ident.Value)
+			return nil, runtimeError(ctx, assign.Token, fmt.Sprintf("identifier not found in scope: %s", ident.Value))
 		}
 		return right, nil
 	}
@@ -312,7 +818,7 @@ func (e *Evaluator) evaluateAssignmentExpression(ctx *ExecutionContext, assign *
 		}
 
 		if idx == Null || parent == Null {
-			return nil, nil // fmt.Errorf("property expression left side evaluated to null")
+			return nil, fmt.Errorf("cannot assign to property: left side evaluated to null")
 		}
 
 		hashValue, ok := parent.(*HashValue)
@@ -325,7 +831,9 @@ func (e *Evaluator) evaluateAssignmentExpression(ctx *ExecutionContext, assign *
 			return nil, err
 		}
 
-		hashValue.Set(idx, right)
+		if err := hashValue.Set(idx, right); err != nil {
+			return nil, err
+		}
 
 		return right, nil
 	}
@@ -363,7 +871,9 @@ func (e *Evaluator) evaluateAssignmentExpression(ctx *ExecutionContext, assign *
 			}
 
 		} else if hashValue, ok := left.(*HashValue); ok {
-			hashValue.Set(index, right)
+			if err := hashValue.Set(index, right); err != nil {
+				return nil, err
+			}
 		} else {
 			return nil, fmt.Errorf("left side of index expression must be an array or hash, got %T", left)
 		}
@@ -406,6 +916,9 @@ func (e *Evaluator) evaluateBangOperatorExpression(right Object) (Object, error)
 func (e *Evaluator) evaluateMinusPrefixOperatorExpression(right Object) (Object, error) {
 	switch r := right.(type) {
 	case *IntegerValue:
+		if r.Value == math.MinInt {
+			return nil, fmt.Errorf("integer overflow")
+		}
 		return &IntegerValue{Value: -r.Value}, nil
 	case *DecimalValue:
 		return &DecimalValue{Value: -r.Value}, nil
@@ -414,11 +927,12 @@ func (e *Evaluator) evaluateMinusPrefixOperatorExpression(right Object) (Object,
 	}
 }
 
-func (e *Evaluator) evaluateInfixExpression(operator string, left, right Object) (Object, error) {
+func (e *Evaluator) evaluateInfixExpression(ctx *ExecutionContext, token lexer.Token, left, right Object) (Object, error) {
+	operator := token.Source
 
 	if i1, ok := left.(*IntegerValue); ok {
 		if i2, ok := right.(*IntegerValue); ok {
-			return e.evaluateIntegerInfixExpression(operator, i1, i2)
+			return e.evaluateIntegerInfixExpression(ctx, token, i1, i2)
 		}
 	}
 
@@ -430,13 +944,37 @@ func (e *Evaluator) evaluateInfixExpression(operator string, left, right Object)
 
 	if d1, ok := left.(*DecimalValue); ok {
 		if d2, ok := right.(*DecimalValue); ok {
-			return e.evaluateDecimalInfixExpression(operator, d1, d2)
+			return e.evaluateDecimalInfixExpression(ctx, token, d1, d2)
+		}
+	}
+
+	// Integer op Decimal → promote integer to decimal
+	if i, ok := left.(*IntegerValue); ok {
+		if d, ok := right.(*DecimalValue); ok {
+			return e.evaluateDecimalInfixExpression(ctx, token, &DecimalValue{Value: float64(i.Value)}, d)
+		}
+	}
+
+	// Decimal op Integer → promote integer to decimal
+	if d, ok := left.(*DecimalValue); ok {
+		if i, ok := right.(*IntegerValue); ok {
+			return e.evaluateDecimalInfixExpression(ctx, token, d, &DecimalValue{Value: float64(i.Value)})
 		}
 	}
 
 	if s1, ok := left.(*StringValue); ok {
 		if s2, ok := right.(*StringValue); ok {
 			return e.evaluateStringInfixExpression(operator, s1, s2)
+		}
+	}
+
+	// String auto-coercion: "str" + other → "str" + other.Debug()
+	if operator == "+" {
+		if s, ok := left.(*StringValue); ok {
+			return &StringValue{Value: s.Value + right.Debug()}, nil
+		}
+		if s, ok := right.(*StringValue); ok {
+			return &StringValue{Value: left.Debug() + s.Value}, nil
 		}
 	}
 
@@ -449,29 +987,42 @@ func (e *Evaluator) evaluateInfixExpression(operator string, left, right Object)
 	}
 
 	if left.Type() != right.Type() {
-		return nil, fmt.Errorf("type mismatch: %T %s %T", left, operator, right)
+		return nil, runtimeError(ctx, token, fmt.Sprintf("type mismatch: %s %s %s", left.Type(), operator, right.Type()))
 	}
 
-	return nil, fmt.Errorf("unknown operator: %T %s %T", left, operator, right)
+	return nil, runtimeError(ctx, token, fmt.Sprintf("unknown operator: %s %s %s", left.Type(), operator, right.Type()))
 }
 
-func (e *Evaluator) evaluateIntegerInfixExpression(operator string, l, r *IntegerValue) (Object, error) {
+func (e *Evaluator) evaluateIntegerInfixExpression(ctx *ExecutionContext, token lexer.Token, l, r *IntegerValue) (Object, error) {
+	operator := token.Source
 
 	switch operator {
 	case "+":
-		return &IntegerValue{Value: l.Value + r.Value}, nil
+		result := l.Value + r.Value
+		if (r.Value > 0 && result < l.Value) || (r.Value < 0 && result > l.Value) {
+			return nil, runtimeError(ctx, token, "integer overflow")
+		}
+		return &IntegerValue{Value: result}, nil
 	case "-":
-		return &IntegerValue{Value: l.Value - r.Value}, nil
+		result := l.Value - r.Value
+		if (r.Value > 0 && result > l.Value) || (r.Value < 0 && result < l.Value) {
+			return nil, runtimeError(ctx, token, "integer overflow")
+		}
+		return &IntegerValue{Value: result}, nil
 	case "*":
-		return &IntegerValue{Value: l.Value * r.Value}, nil
+		result := l.Value * r.Value
+		if l.Value != 0 && r.Value != 0 && result/l.Value != r.Value {
+			return nil, runtimeError(ctx, token, "integer overflow")
+		}
+		return &IntegerValue{Value: result}, nil
 	case "/":
 		if r.Value == 0 {
-			return nil, fmt.Errorf("division by zero")
+			return nil, runtimeError(ctx, token, "division by zero")
 		}
 		return &IntegerValue{Value: l.Value / r.Value}, nil
 	case "%":
 		if r.Value == 0 {
-			return nil, fmt.Errorf("division by zero")
+			return nil, runtimeError(ctx, token, "division by zero")
 		}
 		return &IntegerValue{Value: l.Value % r.Value}, nil
 	case "<":
@@ -487,11 +1038,12 @@ func (e *Evaluator) evaluateIntegerInfixExpression(operator string, l, r *Intege
 	case "!=":
 		return &BooleanValue{Value: l.Value != r.Value}, nil
 	default:
-		return nil, fmt.Errorf("unknown operator: %s", operator)
+		return nil, runtimeError(ctx, token, fmt.Sprintf("unknown operator: %s", operator))
 	}
 }
 
-func (e *Evaluator) evaluateDecimalInfixExpression(operator string, l, r *DecimalValue) (Object, error) {
+func (e *Evaluator) evaluateDecimalInfixExpression(ctx *ExecutionContext, token lexer.Token, l, r *DecimalValue) (Object, error) {
+	operator := token.Source
 
 	switch operator {
 	case "+":
@@ -502,9 +1054,14 @@ func (e *Evaluator) evaluateDecimalInfixExpression(operator string, l, r *Decima
 		return &DecimalValue{Value: l.Value * r.Value}, nil
 	case "/":
 		if r.Value == 0 {
-			return nil, fmt.Errorf("division by zero")
+			return nil, runtimeError(ctx, token, "division by zero")
 		}
 		return &DecimalValue{Value: l.Value / r.Value}, nil
+	case "%":
+		if r.Value == 0 {
+			return nil, runtimeError(ctx, token, "division by zero")
+		}
+		return &DecimalValue{Value: math.Mod(l.Value, r.Value)}, nil
 	case "<":
 		return &BooleanValue{Value: l.Value < r.Value}, nil
 	case ">":
@@ -518,7 +1075,7 @@ func (e *Evaluator) evaluateDecimalInfixExpression(operator string, l, r *Decima
 	case "!=":
 		return &BooleanValue{Value: l.Value != r.Value}, nil
 	default:
-		return nil, fmt.Errorf("unknown operator: %s", operator)
+		return nil, runtimeError(ctx, token, fmt.Sprintf("unknown operator: %s", operator))
 	}
 }
 
@@ -564,7 +1121,7 @@ func (e *Evaluator) evaluateIfExpression(ctx *ExecutionContext, ie *parser.IfExp
 	return Null, nil
 }
 
-func (e *Evaluator) evaluateIdentifier(ident *parser.Identifier, scope *Scope) (Object, error) {
+func (e *Evaluator) evaluateIdentifier(ctx *ExecutionContext, ident *parser.Identifier, scope *Scope) (Object, error) {
 	if val, ok := scope.Get(ident.Value); ok {
 		return val, nil
 	}
@@ -573,7 +1130,7 @@ func (e *Evaluator) evaluateIdentifier(ident *parser.Identifier, scope *Scope) (
 		return builtin, nil
 	}
 
-	return nil, fmt.Errorf("identifier not found: %s", ident.Value)
+	return nil, runtimeError(ctx, ident.Token, fmt.Sprintf("identifier not found: %s", ident.Value))
 }
 
 func (e *Evaluator) evaluateFunctionLiteral(fl *parser.FunctionLiteral, scope *Scope) (Object, error) {
@@ -627,10 +1184,26 @@ func (e *Evaluator) applyFunction(ctx *ExecutionContext, scope *Scope, fn Object
 		if len(args) != len(f.Parameters) {
 			return nil, fmt.Errorf("wrong number of arguments: expected %d, got %d", len(f.Parameters), len(args))
 		}
+
+		if ctx.MaxDepth > 0 {
+			ctx.depth++
+			if ctx.depth > ctx.MaxDepth {
+				return nil, fmt.Errorf("maximum call depth exceeded: %d", ctx.MaxDepth)
+			}
+			defer func() { ctx.depth-- }()
+		}
+
 		extendedScope := e.extendFunctionScope(f, args)
 		evaluated, err := e.evaluateNode(ctx, f.Body, extendedScope)
 		if err != nil {
 			return nil, err
+		}
+
+		// Unwrap return values and discard break/continue signals that leaked
+		// out of loops within the function body
+		switch evaluated.(type) {
+		case *BreakSignal, *ContinueSignal:
+			return Null, nil
 		}
 
 		return unwrapReturnValue(evaluated), nil
@@ -652,6 +1225,10 @@ func (e *Evaluator) extendFunctionScope(f *FunctionValue, args []Object) *Scope 
 }
 
 func (e *Evaluator) evaluateArrayLiteral(ctx *ExecutionContext, al *parser.ArrayLiteral, scope *Scope) (Object, error) {
+	if ctx.MaxArraySize > 0 && len(al.Elements) > ctx.MaxArraySize {
+		return nil, fmt.Errorf("maximum array size exceeded: %d", ctx.MaxArraySize)
+	}
+
 	elements, err := e.evaluateExpressions(ctx, al.Elements, scope)
 	if err != nil {
 		return nil, err
@@ -694,28 +1271,25 @@ func (e *Evaluator) evaluateHashIndexExpression(hash *HashValue, index Object) (
 }
 
 func (e *Evaluator) evaluateHashLiteral(ctx *ExecutionContext, hl *parser.HashLiteral, scope *Scope) (Object, error) {
-	pairs := make(map[HashKey]HashPair)
+	hash := NewHashValue()
 
-	for keyNode, valueNode := range hl.Pairs {
-		key, err := e.evaluateNode(ctx, keyNode, scope)
+	for _, pair := range hl.Pairs {
+		key, err := e.evaluateNode(ctx, pair.Key, scope)
 		if err != nil {
 			return nil, err
 		}
 
-		hashable, ok := key.(Hashable)
-		if !ok {
-			return nil, fmt.Errorf("unusable as hash key: %T", key)
-		}
-
-		value, err := e.evaluateNode(ctx, valueNode, scope)
+		value, err := e.evaluateNode(ctx, pair.Value, scope)
 		if err != nil {
 			return nil, err
 		}
 
-		pairs[hashable.HashKey()] = HashPair{Key: key, Value: value}
+		if err := hash.Set(key, value); err != nil {
+			return nil, err
+		}
 	}
 
-	return &HashValue{Pairs: pairs}, nil
+	return hash, nil
 }
 
 func (e *Evaluator) evaluatePropertyExpression(ctx *ExecutionContext, pe *parser.PropertyExpression, scope *Scope) (Object, Object, Object, error) {

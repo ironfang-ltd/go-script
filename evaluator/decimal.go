@@ -14,7 +14,15 @@ func NewDecimalValue(val float64) *DecimalValue {
 }
 
 func (i *DecimalValue) Debug() string {
-	return strings.TrimRight(fmt.Sprintf("%f", i.Value), "0")
+	s := fmt.Sprintf("%f", i.Value)
+	// Trim trailing zeros but keep at least one digit after the decimal point
+	if strings.Contains(s, ".") {
+		s = strings.TrimRight(s, "0")
+		if s[len(s)-1] == '.' {
+			s += "0"
+		}
+	}
+	return s
 }
 
 func (i *DecimalValue) Type() ObjectType {

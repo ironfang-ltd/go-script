@@ -63,6 +63,22 @@ func (es *ExpressionStatement) Debug() string {
 	return es.Expression.Debug()
 }
 
+type BreakStatement struct {
+	Token lexer.Token
+}
+
+func (bs *BreakStatement) Debug() string {
+	return "break"
+}
+
+type ContinueStatement struct {
+	Token lexer.Token
+}
+
+func (cs *ContinueStatement) Debug() string {
+	return "continue"
+}
+
 type BlockStatement struct {
 	Token      lexer.Token
 	Statements []Statement

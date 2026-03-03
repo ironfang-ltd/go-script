@@ -1,18 +1,18 @@
-package lexer
+package evaluator
 
 import (
 	"fmt"
 	"strings"
 )
 
-type TokenError struct {
+type RuntimeError struct {
 	Message string
 	Source  string
-	Column  int
 	Line    int
+	Column  int
 }
 
-func (e *TokenError) Error() string {
+func (e *RuntimeError) Error() string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("error: %s\n", e.Message))
@@ -43,8 +43,8 @@ func (e *TokenError) Error() string {
 	return sb.String()
 }
 
-func NewTokenError(message, source string, line, column int) *TokenError {
-	return &TokenError{
+func NewRuntimeError(message, source string, line, column int) *RuntimeError {
+	return &RuntimeError{
 		Message: message,
 		Source:  source,
 		Line:    line,

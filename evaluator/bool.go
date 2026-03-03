@@ -19,3 +19,11 @@ func (b *BooleanValue) Debug() string {
 func (b *BooleanValue) Type() ObjectType {
 	return BooleanObject
 }
+
+func (b *BooleanValue) HashKey() HashKey {
+	var val uint64
+	if b.Value {
+		val = 1
+	}
+	return HashKey{Type: b.Type(), Value: val}
+}

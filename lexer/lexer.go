@@ -16,15 +16,19 @@ const (
 )
 
 var keywords = map[string]TokenType{
-	"as":      As,
-	"let":     Let,
-	"fn":      Function,
-	"return":  Return,
-	"true":    True,
-	"false":   False,
-	"if":      If,
-	"else":    Else,
-	"foreach": Foreach,
+	"as":       As,
+	"let":      Let,
+	"fn":       Function,
+	"return":   Return,
+	"true":     True,
+	"false":    False,
+	"if":       If,
+	"else":     Else,
+	"foreach":  Foreach,
+	"while":    While,
+	"break":    Break,
+	"continue": Continue,
+	"null":     Null,
 }
 
 type Lexer struct {
@@ -165,18 +169,75 @@ func (l *Lexer) readScript() (Token, error) {
 			l.col++
 			return NewToken(Semicolon, l.source[pos:l.position], pos, line, col), nil
 		case '+':
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '=' {
+				l.position += 2
+				l.col += 2
+				return NewToken(PlusEqual, l.source[pos:l.position], pos, line, col), nil
+			}
 			l.position++
 			l.col++
 			return NewToken(Plus, l.source[pos:l.position], pos, line, col), nil
 		case '-':
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '=' {
+				l.position += 2
+				l.col += 2
+				return NewToken(MinusEqual, l.source[pos:l.position], pos, line, col), nil
+			}
 			l.position++
 			l.col++
 			return NewToken(Minus, l.source[pos:l.position], pos, line, col), nil
 		case '*':
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '=' {
+				l.position += 2
+				l.col += 2
+				return NewToken(AsteriskEqual, l.source[pos:l.position], pos, line, col), nil
+			}
 			l.position++
 			l.col++
 			return NewToken(Asterisk, l.source[pos:l.position], pos, line, col), nil
 		case '/':
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '/' {
+				// Single-line comment: skip to end of line
+				l.position += 2
+				l.col += 2
+				for l.position < len(l.source) && l.source[l.position] != '\n' {
+					l.position++
+					l.col++
+				}
+				continue
+			}
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '*' {
+				// Multi-line comment: skip until */
+				commentLine := line
+				commentCol := col
+				l.position += 2
+				l.col += 2
+				found := false
+				for l.position+1 < len(l.source) {
+					if l.source[l.position] == '*' && l.source[l.position+1] == '/' {
+						l.position += 2
+						l.col += 2
+						found = true
+						break
+					}
+					if l.source[l.position] == '\n' {
+						l.line++
+						l.col = 1
+					} else {
+						l.col++
+					}
+					l.position++
+				}
+				if !found {
+					return Token{}, NewTokenError("unterminated comment", l.source, commentLine, commentCol)
+				}
+				continue
+			}
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '=' {
+				l.position += 2
+				l.col += 2
+				return NewToken(SlashEqual, l.source[pos:l.position], pos, line, col), nil
+			}
 			l.position++
 			l.col++
 			return NewToken(Slash, l.source[pos:l.position], pos, line, col), nil
@@ -187,9 +248,41 @@ func (l *Lexer) readScript() (Token, error) {
 				l.mode = ModeTemplate
 				return NewToken(ScriptEnd, l.source[pos:l.position], pos, line, col), nil
 			}
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '=' {
+				l.position += 2
+				l.col += 2
+				return NewToken(ModuloEqual, l.source[pos:l.position], pos, line, col), nil
+			}
 			l.position++
 			l.col++
 			return NewToken(Modulo, l.source[pos:l.position], pos, line, col), nil
+		case '&':
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '&' {
+				l.position += 2
+				l.col += 2
+				return NewToken(And, l.source[pos:l.position], pos, line, col), nil
+			}
+			return Token{}, NewTokenError(
+				fmt.Sprintf("unexpected character '%c'", ch),
+				l.source, line, col)
+		case '|':
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '|' {
+				l.position += 2
+				l.col += 2
+				return NewToken(Or, l.source[pos:l.position], pos, line, col), nil
+			}
+			return Token{}, NewTokenError(
+				fmt.Sprintf("unexpected character '%c'", ch),
+				l.source, line, col)
+		case '?':
+			if l.position+1 < len(l.source) && l.source[l.position+1] == '?' {
+				l.position += 2
+				l.col += 2
+				return NewToken(NullCoalescing, l.source[pos:l.position], pos, line, col), nil
+			}
+			return Token{}, NewTokenError(
+				fmt.Sprintf("unexpected character '%c'", ch),
+				l.source, line, col)
 		case '=':
 			if l.position+1 < len(l.source) && l.source[l.position+1] == '=' {
 				l.position += 2

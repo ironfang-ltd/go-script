@@ -89,11 +89,25 @@ func (ie *IfExpression) Debug() string {
 
 type ForeachExpression struct {
 	Token    lexer.Token
+	Index    *Identifier // optional index/key variable (nil if not provided)
 	Variable *Identifier
 	Iterable Expression
 	Body     *BlockStatement
 }
 
 func (fe *ForeachExpression) Debug() string {
+	if fe.Index != nil {
+		return "foreach " + fe.Iterable.Debug() + " as " + fe.Index.Debug() + ", " + fe.Variable.Debug() + " " + fe.Body.Debug()
+	}
 	return "foreach " + fe.Iterable.Debug() + " as " + fe.Variable.Debug() + " " + fe.Body.Debug()
+}
+
+type WhileExpression struct {
+	Token     lexer.Token
+	Condition Expression
+	Body      *BlockStatement
+}
+
+func (we *WhileExpression) Debug() string {
+	return "while " + we.Condition.Debug() + " " + we.Body.Debug()
 }

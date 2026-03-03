@@ -43,8 +43,10 @@ type FunctionLiteral struct {
 func (fl *FunctionLiteral) Debug() string {
 	var sb strings.Builder
 	sb.WriteString(fl.Token.Source)
-	sb.WriteString(" ")
-	sb.WriteString(fl.Identifier.Value)
+	if fl.Identifier != nil {
+		sb.WriteString(" ")
+		sb.WriteString(fl.Identifier.Value)
+	}
 	sb.WriteString("(")
 	for i, p := range fl.Parameters {
 		sb.WriteString(p.Value)
@@ -55,6 +57,14 @@ func (fl *FunctionLiteral) Debug() string {
 	sb.WriteString(") \n")
 	sb.WriteString(fl.Body.Debug())
 	return sb.String()
+}
+
+type NullLiteral struct {
+	Token lexer.Token
+}
+
+func (nl *NullLiteral) Debug() string {
+	return "null"
 }
 
 type FloatLiteral struct {
@@ -75,19 +85,26 @@ func (al *ArrayLiteral) Debug() string {
 	return al.Token.Source
 }
 
+type HashPair struct {
+	Key   Expression
+	Value Expression
+}
+
 type HashLiteral struct {
 	Token lexer.Token
-	Pairs map[Expression]Expression
+	Pairs []HashPair
 }
 
 func (hl *HashLiteral) Debug() string {
 	var sb strings.Builder
-	sb.WriteString(hl.Token.Source)
 	sb.WriteString("{")
-	for k, v := range hl.Pairs {
-		sb.WriteString(k.Debug())
+	for i, pair := range hl.Pairs {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(pair.Key.Debug())
 		sb.WriteString(": ")
-		sb.WriteString(v.Debug())
+		sb.WriteString(pair.Value.Debug())
 	}
 	sb.WriteString("}")
 	return sb.String()

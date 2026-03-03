@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -1467,5 +1468,987 @@ func TestConsecutiveReadsAfterEOF(t *testing.T) {
 		if tok.Type != EndOfFile {
 			t.Fatalf("read %d: want EOF, got %s", i, tok.Type)
 		}
+	}
+}
+
+// --- TokenError.Error() formatting tests ---
+
+func TestTokenErrorError(t *testing.T) {
+	err := NewTokenError("unexpected character '#'", "let x = #;", 1, 9)
+	msg := err.Error()
+
+	if !strings.Contains(msg, "unexpected character '#'") {
+		t.Fatalf("error message should contain the message text, got: %s", msg)
+	}
+	if !strings.Contains(msg, "line 1") {
+		t.Fatalf("error message should contain line number, got: %s", msg)
+	}
+	if !strings.Contains(msg, "column 9") {
+		t.Fatalf("error message should contain column number, got: %s", msg)
+	}
+	if !strings.Contains(msg, "let x = #;") {
+		t.Fatalf("error message should contain source line, got: %s", msg)
+	}
+	if !strings.Contains(msg, "^") {
+		t.Fatalf("error message should contain caret pointer, got: %s", msg)
+	}
+}
+
+func TestTokenErrorErrorWithTabs(t *testing.T) {
+	// Tab should be expanded to 4 spaces in the output
+	err := NewTokenError("bad char", "\t#", 1, 2)
+	msg := err.Error()
+
+	// The tab in the source should be replaced with 4 spaces
+	if !strings.Contains(msg, "    #") {
+		t.Fatalf("tabs should be expanded to 4 spaces, got: %s", msg)
+	}
+}
+
+func TestTokenErrorErrorMultiline(t *testing.T) {
+	source := "let a = 1;\nlet b = #;"
+	err := NewTokenError("unexpected character", source, 2, 9)
+	msg := err.Error()
+
+	if !strings.Contains(msg, "line 2") {
+		t.Fatalf("should reference line 2, got: %s", msg)
+	}
+	// Should show the second line of source
+	if !strings.Contains(msg, "let b = #;") {
+		t.Fatalf("should contain the second source line, got: %s", msg)
+	}
+}
+
+// --- Internal method guard branch tests (for 100% coverage) ---
+
+func TestTryStringNotAtQuote(t *testing.T) {
+	l := NewScript("abc")
+	tok, ok, err := l.tryString('"', String)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Fatal("expected ok=false when not at a quote character")
+	}
+	if tok.Type != None {
+		t.Fatalf("expected None token, got %s", tok.Type)
+	}
+}
+
+func TestTryNumberNotAtDigit(t *testing.T) {
+	l := NewScript("abc")
+	tok, ok := l.tryNumber()
+	if ok {
+		t.Fatal("expected ok=false when not at a digit")
+	}
+	if tok != (Token{}) {
+		t.Fatalf("expected zero Token, got %+v", tok)
+	}
+}
+
+func TestTryIdentifierOrKeywordNotAtIdentStart(t *testing.T) {
+	l := NewScript("123")
+	tok, ok := l.tryIdentifierOrKeyword()
+	if ok {
+		t.Fatal("expected ok=false when not at an identifier start character")
+	}
+	if tok.Type != None {
+		t.Fatalf("expected None token, got %s", tok.Type)
+	}
+}
+
+// --- Additional edge case tests ---
+
+func TestModuloInPureScript(t *testing.T) {
+	l := NewScript("5 % 3")
+	want := []Token{
+		{Type: Integer, Source: "5"},
+		{Type: Modulo, Source: "%"},
+		{Type: Integer, Source: "3"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestScriptStartInPureScript(t *testing.T) {
+	// In pure script mode, {% should be LeftBrace then Modulo
+	l := NewScript("{%")
+	want := []Token{
+		{Type: LeftBrace, Source: "{"},
+		{Type: Modulo, Source: "%"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestTemplateStartsWithScriptBlock(t *testing.T) {
+	l := NewTemplate("{% x %}tail")
+	want := []Token{
+		{Type: ScriptStart, Source: "{%"},
+		{Type: Identifier, Source: "x"},
+		{Type: ScriptEnd, Source: "%}"},
+		{Type: Text, Source: "tail"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestTemplateEndsWithScriptBlock(t *testing.T) {
+	l := NewTemplate("head{% x %}")
+	want := []Token{
+		{Type: Text, Source: "head"},
+		{Type: ScriptStart, Source: "{%"},
+		{Type: Identifier, Source: "x"},
+		{Type: ScriptEnd, Source: "%}"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestTemplateEmptyScriptBlock(t *testing.T) {
+	l := NewTemplate("{% %}")
+	want := []Token{
+		{Type: ScriptStart, Source: "{%"},
+		{Type: ScriptEnd, Source: "%}"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestTemplateOnlyScriptBlock(t *testing.T) {
+	l := NewTemplate("{% 42 %}")
+	want := []Token{
+		{Type: ScriptStart, Source: "{%"},
+		{Type: Integer, Source: "42"},
+		{Type: ScriptEnd, Source: "%}"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestScriptNewlinesBetweenTokens(t *testing.T) {
+	l := NewScript("a\n+\nb")
+	want := []Token{
+		{Type: Identifier, Source: "a", Line: 1, Column: 1},
+		{Type: Plus, Source: "+", Line: 2, Column: 1},
+		{Type: Identifier, Source: "b", Line: 3, Column: 1},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+		if w.Line != 0 && tok.Line != w.Line {
+			t.Fatalf("[%d] want line %d, got %d", i, w.Line, tok.Line)
+		}
+		if w.Column != 0 && tok.Column != w.Column {
+			t.Fatalf("[%d] want column %d, got %d", i, w.Column, tok.Column)
+		}
+	}
+}
+
+func TestCarriageReturnIsWhitespace(t *testing.T) {
+	l := NewScript("a\r+")
+	want := []Token{
+		{Type: Identifier, Source: "a"},
+		{Type: Plus, Source: "+"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestTabIsWhitespace(t *testing.T) {
+	l := NewScript("a\t+")
+	want := []Token{
+		{Type: Identifier, Source: "a"},
+		{Type: Plus, Source: "+"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestMultipleUnexpectedCharacters(t *testing.T) {
+	tests := []struct {
+		input string
+		char  string
+	}{
+		{"#", "#"},
+		{"@", "@"},
+		{"$", "$"},
+		{"~", "~"},
+		{"&", "&"},
+		{"|", "|"},
+		{"^", "^"},
+		{"?", "?"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := NewScript(tt.input)
+			_, err := l.Read()
+			if err == nil {
+				t.Fatalf("expected error for character %q, got nil", tt.input)
+			}
+			var tokenErr *TokenError
+			if !errors.As(err, &tokenErr) {
+				t.Fatal("expected TokenError")
+			}
+			if !strings.Contains(tokenErr.Message, tt.char) {
+				t.Fatalf("error message should mention character %q, got: %s", tt.char, tokenErr.Message)
+			}
+		})
+	}
+}
+
+func TestLargeInteger(t *testing.T) {
+	l := NewScript("99999999999999")
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tok.Type != Integer || tok.Source != "99999999999999" {
+		t.Fatalf("want Integer '99999999999999', got %s %q", tok.Type, tok.Source)
+	}
+}
+
+func TestStringWithOnlyEscapes(t *testing.T) {
+	l := NewScript(`"\\\\"`)
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tok.Type != String {
+		t.Fatalf("want String, got %s", tok.Type)
+	}
+	if tok.Source != `"\\\\"` {
+		t.Fatalf("want source %q, got %q", `"\\\\"`, tok.Source)
+	}
+}
+
+func TestNestedBraces(t *testing.T) {
+	l := NewScript("{{}}")
+	want := []Token{
+		{Type: LeftBrace, Source: "{"},
+		{Type: LeftBrace, Source: "{"},
+		{Type: RightBrace, Source: "}"},
+		{Type: RightBrace, Source: "}"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestNestedBrackets(t *testing.T) {
+	l := NewScript("a[b[0]]")
+	want := []Token{
+		{Type: Identifier, Source: "a"},
+		{Type: LeftBracket, Source: "["},
+		{Type: Identifier, Source: "b"},
+		{Type: LeftBracket, Source: "["},
+		{Type: Integer, Source: "0"},
+		{Type: RightBracket, Source: "]"},
+		{Type: RightBracket, Source: "]"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestAllComparisonOperators(t *testing.T) {
+	l := NewScript("a < b > c <= d >= e == f != g")
+	want := []Token{
+		{Type: Identifier, Source: "a"},
+		{Type: LessThan, Source: "<"},
+		{Type: Identifier, Source: "b"},
+		{Type: GreaterThan, Source: ">"},
+		{Type: Identifier, Source: "c"},
+		{Type: LessOrEqual, Source: "<="},
+		{Type: Identifier, Source: "d"},
+		{Type: GreaterOrEqual, Source: ">="},
+		{Type: Identifier, Source: "e"},
+		{Type: Equals, Source: "=="},
+		{Type: Identifier, Source: "f"},
+		{Type: NotEqual, Source: "!="},
+		{Type: Identifier, Source: "g"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestAllArithmeticOperators(t *testing.T) {
+	l := NewScript("a + b - c * d / e % f")
+	want := []Token{
+		{Type: Identifier, Source: "a"},
+		{Type: Plus, Source: "+"},
+		{Type: Identifier, Source: "b"},
+		{Type: Minus, Source: "-"},
+		{Type: Identifier, Source: "c"},
+		{Type: Asterisk, Source: "*"},
+		{Type: Identifier, Source: "d"},
+		{Type: Slash, Source: "/"},
+		{Type: Identifier, Source: "e"},
+		{Type: Modulo, Source: "%"},
+		{Type: Identifier, Source: "f"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestTemplateWithNewlinesInText(t *testing.T) {
+	l := NewTemplate("line1\nline2\n{% x %}\nline4")
+	want := []Token{
+		{Type: Text, Source: "line1\nline2\n"},
+		{Type: ScriptStart, Source: "{%"},
+		{Type: Identifier, Source: "x"},
+		{Type: ScriptEnd, Source: "%}"},
+		{Type: Text, Source: "\nline4"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestTemplatePartialScriptStart(t *testing.T) {
+	// A lone { not followed by % should be text
+	l := NewTemplate("hello { world")
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tok.Type != Text || tok.Source != "hello { world" {
+		t.Fatalf("want Text 'hello { world', got %s %q", tok.Type, tok.Source)
+	}
+}
+
+func TestTemplateTrailingOpenBrace(t *testing.T) {
+	// A { at end of input (not followed by %) should be text
+	l := NewTemplate("hello {")
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tok.Type != Text || tok.Source != "hello {" {
+		t.Fatalf("want Text 'hello {', got %s %q", tok.Type, tok.Source)
+	}
+}
+
+func TestStringInScriptBlock(t *testing.T) {
+	l := NewTemplate(`{% "hello world" %}`)
+	want := []Token{
+		{Type: ScriptStart, Source: "{%"},
+		{Type: String, Source: `"hello world"`},
+		{Type: ScriptEnd, Source: "%}"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestEqualNotFollowedByEqual(t *testing.T) {
+	// = at end of input
+	l := NewScript("=")
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tok.Type != Equal || tok.Source != "=" {
+		t.Fatalf("want Equal '=', got %s %q", tok.Type, tok.Source)
+	}
+}
+
+func TestBangNotFollowedByEqual(t *testing.T) {
+	// ! at end of input
+	l := NewScript("!")
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tok.Type != Bang || tok.Source != "!" {
+		t.Fatalf("want Bang '!', got %s %q", tok.Type, tok.Source)
+	}
+}
+
+func TestLessThanNotFollowedByEqual(t *testing.T) {
+	// < at end of input
+	l := NewScript("<")
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tok.Type != LessThan || tok.Source != "<" {
+		t.Fatalf("want LessThan '<', got %s %q", tok.Type, tok.Source)
+	}
+}
+
+func TestGreaterThanNotFollowedByEqual(t *testing.T) {
+	// > at end of input
+	l := NewScript(">")
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tok.Type != GreaterThan || tok.Source != ">" {
+		t.Fatalf("want GreaterThan '>', got %s %q", tok.Type, tok.Source)
+	}
+}
+
+func TestModuloAtEndOfInput(t *testing.T) {
+	// % at end of input in pure script mode
+	l := NewScript("%")
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tok.Type != Modulo || tok.Source != "%" {
+		t.Fatalf("want Modulo '%%', got %s %q", tok.Type, tok.Source)
+	}
+}
+
+func TestModuloNotFollowedByBrace(t *testing.T) {
+	// In template mode, % not followed by } should be Modulo
+	l := NewTemplate("{% % x %}")
+	want := []Token{
+		{Type: ScriptStart, Source: "{%"},
+		{Type: Modulo, Source: "%"},
+		{Type: Identifier, Source: "x"},
+		{Type: ScriptEnd, Source: "%}"},
+		{Type: EndOfFile, Source: ""},
+	}
+	for i, w := range want {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != w.Type || tok.Source != w.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, w.Type, w.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestSingleLineComment(t *testing.T) {
+	script := "let x = 5; // this is a comment\nlet y = 10;"
+
+	l := NewScript(script)
+
+	expected := []Token{
+		{Type: Let, Source: "let"},
+		{Type: Identifier, Source: "x"},
+		{Type: Equal, Source: "="},
+		{Type: Integer, Source: "5"},
+		{Type: Semicolon, Source: ";"},
+		{Type: Let, Source: "let"},
+		{Type: Identifier, Source: "y"},
+		{Type: Equal, Source: "="},
+		{Type: Integer, Source: "10"},
+		{Type: Semicolon, Source: ";"},
+		{Type: EndOfFile, Source: ""},
+	}
+
+	for i, exp := range expected {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != exp.Type || tok.Source != exp.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, exp.Type, exp.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestMultiLineComment(t *testing.T) {
+	script := "let x = 5; /* this is\na multi-line\ncomment */ let y = 10;"
+
+	l := NewScript(script)
+
+	expected := []Token{
+		{Type: Let, Source: "let"},
+		{Type: Identifier, Source: "x"},
+		{Type: Equal, Source: "="},
+		{Type: Integer, Source: "5"},
+		{Type: Semicolon, Source: ";"},
+		{Type: Let, Source: "let"},
+		{Type: Identifier, Source: "y"},
+		{Type: Equal, Source: "="},
+		{Type: Integer, Source: "10"},
+		{Type: Semicolon, Source: ";"},
+		{Type: EndOfFile, Source: ""},
+	}
+
+	for i, exp := range expected {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != exp.Type || tok.Source != exp.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, exp.Type, exp.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestCommentOnlyLine(t *testing.T) {
+	script := "// entire line is a comment"
+
+	l := NewScript(script)
+
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tok.Type != EndOfFile {
+		t.Fatalf("expected EOF, got %s %q", tok.Type, tok.Source)
+	}
+}
+
+func TestLogicalAndToken(t *testing.T) {
+	script := "true && false"
+
+	l := NewScript(script)
+
+	expected := []Token{
+		{Type: True, Source: "true"},
+		{Type: And, Source: "&&"},
+		{Type: False, Source: "false"},
+		{Type: EndOfFile, Source: ""},
+	}
+
+	for i, exp := range expected {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != exp.Type || tok.Source != exp.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, exp.Type, exp.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestLogicalOrToken(t *testing.T) {
+	script := "true || false"
+
+	l := NewScript(script)
+
+	expected := []Token{
+		{Type: True, Source: "true"},
+		{Type: Or, Source: "||"},
+		{Type: False, Source: "false"},
+		{Type: EndOfFile, Source: ""},
+	}
+
+	for i, exp := range expected {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != exp.Type || tok.Source != exp.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, exp.Type, exp.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestNullCoalescingToken(t *testing.T) {
+	script := "x ?? 5"
+
+	l := NewScript(script)
+
+	expected := []Token{
+		{Type: Identifier, Source: "x"},
+		{Type: NullCoalescing, Source: "??"},
+		{Type: Integer, Source: "5"},
+		{Type: EndOfFile, Source: ""},
+	}
+
+	for i, exp := range expected {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != exp.Type || tok.Source != exp.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, exp.Type, exp.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestWhileBreakContinueTokens(t *testing.T) {
+	script := "while (true) { break; continue; }"
+
+	l := NewScript(script)
+
+	expected := []Token{
+		{Type: While, Source: "while"},
+		{Type: LeftParen, Source: "("},
+		{Type: True, Source: "true"},
+		{Type: RightParen, Source: ")"},
+		{Type: LeftBrace, Source: "{"},
+		{Type: Break, Source: "break"},
+		{Type: Semicolon, Source: ";"},
+		{Type: Continue, Source: "continue"},
+		{Type: Semicolon, Source: ";"},
+		{Type: RightBrace, Source: "}"},
+		{Type: EndOfFile, Source: ""},
+	}
+
+	for i, exp := range expected {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != exp.Type || tok.Source != exp.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, exp.Type, exp.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+func TestNullToken(t *testing.T) {
+	script := "null"
+
+	l := NewScript(script)
+
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tok.Type != Null {
+		t.Fatalf("expected NULL, got %s %q", tok.Type, tok.Source)
+	}
+}
+
+func TestSingleAmpersandError(t *testing.T) {
+	script := "x & y"
+
+	l := NewScript(script)
+
+	_, _ = l.Read() // skip 'x'
+
+	_, err := l.Read()
+	if err == nil {
+		t.Fatal("expected error for single '&', got nil")
+	}
+}
+
+func TestSinglePipeError(t *testing.T) {
+	script := "x | y"
+
+	l := NewScript(script)
+
+	_, _ = l.Read() // skip 'x'
+
+	_, err := l.Read()
+	if err == nil {
+		t.Fatal("expected error for single '|', got nil")
+	}
+}
+
+func TestSingleQuestionMarkError(t *testing.T) {
+	script := "x ? y"
+
+	l := NewScript(script)
+
+	_, _ = l.Read() // skip 'x'
+
+	_, err := l.Read()
+	if err == nil {
+		t.Fatal("expected error for single '?', got nil")
+	}
+}
+
+func TestSlashStillWorksDivision(t *testing.T) {
+	script := "10 / 2"
+
+	l := NewScript(script)
+
+	expected := []Token{
+		{Type: Integer, Source: "10"},
+		{Type: Slash, Source: "/"},
+		{Type: Integer, Source: "2"},
+		{Type: EndOfFile, Source: ""},
+	}
+
+	for i, exp := range expected {
+		tok, err := l.Read()
+		if err != nil {
+			t.Fatalf("[%d] unexpected error: %v", i, err)
+		}
+		if tok.Type != exp.Type || tok.Source != exp.Source {
+			t.Fatalf("[%d] want %s %q, got %s %q", i, exp.Type, exp.Source, tok.Type, tok.Source)
+		}
+	}
+}
+
+// --- Bug fix verification tests ---
+
+func TestUnterminatedMultiLineCommentAtEOF(t *testing.T) {
+	l := NewScript("let x = 5; /* unterminated")
+	for {
+		tok, err := l.Read()
+		if err != nil {
+			var tokenErr *TokenError
+			if !errors.As(err, &tokenErr) {
+				t.Fatalf("expected TokenError, got %T: %v", err, err)
+			}
+			if !strings.Contains(tokenErr.Message, "unterminated comment") {
+				t.Fatalf("expected 'unterminated comment' error, got: %s", tokenErr.Message)
+			}
+			return
+		}
+		if tok.Type == EndOfFile {
+			t.Fatal("expected error for unterminated comment, but got EOF")
+		}
+	}
+}
+
+func TestTokenErrorRustStyleFormat(t *testing.T) {
+	err := NewTokenError("unexpected character '#'", "let x = #;", 1, 9)
+	msg := err.Error()
+
+	// Verify Rust-style format elements
+	if !strings.Contains(msg, "error: unexpected character '#'") {
+		t.Fatalf("should start with 'error:' prefix, got: %s", msg)
+	}
+	if !strings.Contains(msg, "-->") {
+		t.Fatalf("should contain '-->' location indicator, got: %s", msg)
+	}
+	if !strings.Contains(msg, "|") {
+		t.Fatalf("should contain pipe separators, got: %s", msg)
+	}
+	if !strings.Contains(msg, "1 | let x = #;") {
+		t.Fatalf("should contain line number with pipe, got: %s", msg)
+	}
+}
+
+func TestTokenErrorBoundsCheck(t *testing.T) {
+	// Line number out of range should not panic
+	err := NewTokenError("test error", "single line", 99, 1)
+	msg := err.Error()
+	if !strings.Contains(msg, "error: test error") {
+		t.Fatalf("should contain error message, got: %s", msg)
+	}
+}
+
+func TestTokenErrorLineZero(t *testing.T) {
+	// Line 0 should not panic
+	err := NewTokenError("test error", "single line", 0, 1)
+	msg := err.Error()
+	if !strings.Contains(msg, "error: test error") {
+		t.Fatalf("should contain error message, got: %s", msg)
+	}
+}
+
+// --- Compound Assignment Operators ---
+
+func TestLexCompoundAssignmentOperators(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected []TokenType
+	}{
+		{"x += 1", []TokenType{Identifier, PlusEqual, Integer}},
+		{"x -= 1", []TokenType{Identifier, MinusEqual, Integer}},
+		{"x *= 1", []TokenType{Identifier, AsteriskEqual, Integer}},
+		{"x /= 1", []TokenType{Identifier, SlashEqual, Integer}},
+		{"x %= 1", []TokenType{Identifier, ModuloEqual, Integer}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := NewScript(tt.input)
+			for i, expectedType := range tt.expected {
+				tok, err := l.Read()
+				if err != nil {
+					t.Fatalf("token %d: unexpected error: %v", i, err)
+				}
+				if tok.Type != expectedType {
+					t.Fatalf("token %d: expected %s, got %s (%q)", i, expectedType, tok.Type, tok.Source)
+				}
+			}
+		})
+	}
+}
+
+func TestLexCompoundAssignmentDoesNotConflictWithComments(t *testing.T) {
+	// /= should not conflict with // or /*
+	input := `// comment
+x /= 2`
+	l := NewScript(input)
+	tok, err := l.Read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tok.Type != Identifier {
+		t.Fatalf("expected Identifier, got %s", tok.Type)
+	}
+	tok, err = l.Read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tok.Type != SlashEqual {
+		t.Fatalf("expected SlashEqual, got %s", tok.Type)
+	}
+}
+
+func TestLexCompoundAssignmentModuloInTemplate(t *testing.T) {
+	// %= should not conflict with %} in template mode
+	input := `{% x %= 2; %}`
+	l := NewTemplate(input)
+	tok, err := l.Read() // {%
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tok.Type != ScriptStart {
+		t.Fatalf("expected ScriptStart, got %s", tok.Type)
+	}
+	tok, err = l.Read() // x
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tok.Type != Identifier {
+		t.Fatalf("expected Identifier, got %s", tok.Type)
+	}
+	tok, err = l.Read() // %=
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tok.Type != ModuloEqual {
+		t.Fatalf("expected ModuloEqual, got %s (%q)", tok.Type, tok.Source)
+	}
+}
+
+func TestLexCompoundAssignmentSources(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+		typ      TokenType
+	}{
+		{"+=", "+=", PlusEqual},
+		{"-=", "-=", MinusEqual},
+		{"*=", "*=", AsteriskEqual},
+		{"/=", "/=", SlashEqual},
+		{"%=", "%=", ModuloEqual},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := NewScript(tt.input)
+			tok, err := l.Read()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tok.Source != tt.expected {
+				t.Fatalf("expected source %q, got %q", tt.expected, tok.Source)
+			}
+			if tok.Type != tt.typ {
+				t.Fatalf("expected type %s, got %s", tt.typ, tok.Type)
+			}
+		})
 	}
 }

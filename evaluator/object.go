@@ -5,6 +5,8 @@ type ObjectType string
 const (
 	NullObject            ObjectType = "NULL"
 	ReturnValueObject     ObjectType = "RETURN_VALUE"
+	BreakSignalObject     ObjectType = "BREAK_SIGNAL"
+	ContinueSignalObject  ObjectType = "CONTINUE_SIGNAL"
 	BooleanObject         ObjectType = "BOOLEAN"
 	IntegerObject         ObjectType = "INTEGER"
 	DecimalObject         ObjectType = "DECIMAL"

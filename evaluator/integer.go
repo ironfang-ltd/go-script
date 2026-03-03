@@ -17,3 +17,7 @@ func (i *IntegerValue) Debug() string {
 func (i *IntegerValue) Type() ObjectType {
 	return IntegerObject
 }
+
+func (i *IntegerValue) HashKey() HashKey {
+	return HashKey{Type: i.Type(), Value: uint64(i.Value)}
+}

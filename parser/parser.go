@@ -9,20 +9,23 @@ import (
 )
 
 var Precedences = map[lexer.TokenType]int{
-	lexer.Equals:         1,
-	lexer.NotEqual:       1,
-	lexer.LessThan:       2,
-	lexer.GreaterThan:    2,
-	lexer.LessOrEqual:    2,
-	lexer.GreaterOrEqual: 2,
-	lexer.Plus:           3,
-	lexer.Minus:          3,
-	lexer.Slash:          4,
-	lexer.Asterisk:       4,
-	lexer.Modulo:         4,
-	lexer.Dot:            5,
-	lexer.LeftParen:      6,
-	lexer.LeftBracket:    6,
+	lexer.NullCoalescing: 1,
+	lexer.Or:             2,
+	lexer.And:            3,
+	lexer.Equals:         4,
+	lexer.NotEqual:       4,
+	lexer.LessThan:       5,
+	lexer.GreaterThan:    5,
+	lexer.LessOrEqual:    5,
+	lexer.GreaterOrEqual: 5,
+	lexer.Plus:           6,
+	lexer.Minus:          6,
+	lexer.Slash:          7,
+	lexer.Asterisk:       7,
+	lexer.Modulo:         7,
+	lexer.Dot:            8,
+	lexer.LeftParen:      9,
+	lexer.LeftBracket:    9,
 }
 
 type Program struct {
@@ -112,8 +115,26 @@ func (p *Parser) parseStatement() (Statement, error) {
 		return p.parseLetStatement()
 	case lexer.Foreach:
 		return p.parseForeachExpression()
+	case lexer.While:
+		return p.parseWhileExpression()
 	case lexer.Return:
 		return p.parseReturnStatement()
+	case lexer.Break:
+		stmt := &BreakStatement{Token: p.current}
+		if p.next.Type == lexer.Semicolon {
+			if err := p.nextToken(); err != nil {
+				return nil, err
+			}
+		}
+		return stmt, nil
+	case lexer.Continue:
+		stmt := &ContinueStatement{Token: p.current}
+		if p.next.Type == lexer.Semicolon {
+			if err := p.nextToken(); err != nil {
+				return nil, err
+			}
+		}
+		return stmt, nil
 	default:
 		return p.parseExpressionStatement()
 	}
@@ -262,11 +283,66 @@ func (p *Parser) parseExpressionStatement() (*ExpressionStatement, error) {
 
 	}
 
-	if _, ok := expression.(*FunctionLiteral); ok {
+	// Compound assignment operators: +=, -=, *=, /=, %=
+	compoundOps := map[lexer.TokenType]string{
+		lexer.PlusEqual:     "+",
+		lexer.MinusEqual:    "-",
+		lexer.AsteriskEqual: "*",
+		lexer.SlashEqual:    "/",
+		lexer.ModuloEqual:   "%",
+	}
+
+	if op, isCompound := compoundOps[p.next.Type]; isCompound {
+		switch expression.(type) {
+		case *IndexExpression, *PropertyExpression, *Identifier:
+			compoundToken := p.next
+
+			err = p.nextToken() // consume compound operator
+			if err != nil {
+				return nil, err
+			}
+
+			err = p.nextToken()
+			if err != nil {
+				return nil, err
+			}
+
+			right, err := p.parseExpression(0)
+			if right == nil || err != nil {
+				return nil, err
+			}
+
+			// Desugar: x += expr → x = x + expr
+			assignment := &AssignmentExpression{
+				Token: compoundToken,
+				Left:  expression,
+				Right: &InfixExpression{
+					Token: lexer.NewToken(lexer.TokenType(op), op, compoundToken.Position, compoundToken.Line, compoundToken.Column),
+					Left:  expression,
+					Right: right,
+				},
+			}
+
+			statement.Expression = assignment
+
+			err = p.nextToken()
+			if err != nil {
+				return nil, err
+			}
+
+			return statement, nil
+		}
+	}
+
+	if fl, ok := expression.(*FunctionLiteral); ok && fl.Identifier != nil {
 		return statement, nil
 	}
 
 	if _, ok := expression.(*IfExpression); ok {
+		return statement, nil
+	}
+
+	if _, ok := expression.(*WhileExpression); ok {
 		return statement, nil
 	}
 
@@ -322,6 +398,12 @@ func (p *Parser) parseExpression(precedence int) (Expression, error) {
 		case lexer.GreaterOrEqual:
 			fallthrough
 		case lexer.LessOrEqual:
+			fallthrough
+		case lexer.And:
+			fallthrough
+		case lexer.Or:
+			fallthrough
+		case lexer.NullCoalescing:
 			err := p.nextToken()
 			if err != nil {
 				return nil, err
@@ -400,7 +482,7 @@ func (p *Parser) parsePrefixExpression() (Expression, error) {
 			return nil, err
 		}
 
-		right, err := p.parseExpression(5) // Plus
+		right, err := p.parseExpression(7) // Multiplicative (highest arithmetic)
 		if right == nil || err != nil {
 			return nil, err
 		}
@@ -418,6 +500,8 @@ func (p *Parser) parsePrefixExpression() (Expression, error) {
 		return p.parseArray()
 	case lexer.LeftBrace:
 		return p.parseHashLiteral()
+	case lexer.Null:
+		return &NullLiteral{Token: p.current}, nil
 	default:
 		p.errors = append(p.errors,
 			NewParseError(fmt.Sprintf("unexpected token %s", p.current.Type), p.l.GetSource(), p.current))
@@ -497,7 +581,7 @@ func (p *Parser) parseIndexExpression(left Expression) (Expression, error) {
 	}
 
 	exp, err := p.parseExpression(0)
-	if err != nil {
+	if exp == nil || err != nil {
 		return nil, err
 	}
 
@@ -616,7 +700,7 @@ func (p *Parser) parseGroupedExpression() (Expression, error) {
 	}
 
 	expression, err := p.parseExpression(0)
-	if err != nil {
+	if expression == nil || err != nil {
 		return nil, err
 	}
 
@@ -645,7 +729,7 @@ func (p *Parser) parseIfExpression() (Expression, error) {
 	}
 
 	expression.Condition, err = p.parseExpression(0)
-	if err != nil {
+	if expression.Condition == nil || err != nil {
 		return nil, err
 	}
 
@@ -659,7 +743,10 @@ func (p *Parser) parseIfExpression() (Expression, error) {
 		return nil, err
 	}
 
-	expression.Consequence = p.parseBlockStatement()
+	expression.Consequence, err = p.parseBlockStatement()
+	if err != nil {
+		return nil, err
+	}
 
 	if p.next.Type == lexer.Else {
 		err := p.nextToken()
@@ -667,12 +754,33 @@ func (p *Parser) parseIfExpression() (Expression, error) {
 			return nil, err
 		}
 
-		peek, err := p.tryPeek(lexer.LeftBrace)
-		if !peek || err != nil {
-			return nil, err
-		}
+		// else if chaining
+		if p.next.Type == lexer.If {
+			err := p.nextToken()
+			if err != nil {
+				return nil, err
+			}
 
-		expression.Alternative = p.parseBlockStatement()
+			elseIf, err := p.parseIfExpression()
+			if err != nil {
+				return nil, err
+			}
+
+			expression.Alternative = &BlockStatement{
+				Token:      p.current,
+				Statements: []Statement{&ExpressionStatement{Expression: elseIf}},
+			}
+		} else {
+			peek, err := p.tryPeek(lexer.LeftBrace)
+			if !peek || err != nil {
+				return nil, err
+			}
+
+			expression.Alternative, err = p.parseBlockStatement()
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return expression, nil
@@ -695,7 +803,7 @@ func (p *Parser) parseForeachExpression() (Expression, error) {
 	}
 
 	expression.Iterable, err = p.parseExpression(0)
-	if err != nil {
+	if expression.Iterable == nil || err != nil {
 		return nil, err
 	}
 
@@ -709,7 +817,33 @@ func (p *Parser) parseForeachExpression() (Expression, error) {
 		return nil, err
 	}
 
-	expression.Variable, err = p.parseIdentifier()
+	firstIdent, err := p.parseIdentifier()
+	if err != nil {
+		return nil, err
+	}
+
+	// Check for index variable: foreach (arr as idx, item)
+	if p.next.Type == lexer.Comma {
+		err = p.nextToken() // consume comma
+		if err != nil {
+			return nil, err
+		}
+
+		err = p.nextToken()
+		if err != nil {
+			return nil, err
+		}
+
+		secondIdent, err := p.parseIdentifier()
+		if err != nil {
+			return nil, err
+		}
+
+		expression.Index = firstIdent
+		expression.Variable = secondIdent
+	} else {
+		expression.Variable = firstIdent
+	}
 
 	peek, err = p.tryPeek(lexer.RightParen)
 	if !peek || err != nil {
@@ -721,12 +855,54 @@ func (p *Parser) parseForeachExpression() (Expression, error) {
 		return nil, err
 	}
 
-	expression.Body = p.parseBlockStatement()
+	expression.Body, err = p.parseBlockStatement()
+	if err != nil {
+		return nil, err
+	}
 
 	return expression, nil
 }
 
-func (p *Parser) parseBlockStatement() *BlockStatement {
+func (p *Parser) parseWhileExpression() (*ExpressionStatement, error) {
+
+	whileExpr := &WhileExpression{
+		Token: p.current,
+	}
+
+	peek, err := p.tryPeek(lexer.LeftParen)
+	if !peek || err != nil {
+		return nil, err
+	}
+
+	err = p.nextToken()
+	if err != nil {
+		return nil, err
+	}
+
+	whileExpr.Condition, err = p.parseExpression(0)
+	if whileExpr.Condition == nil || err != nil {
+		return nil, err
+	}
+
+	peek, err = p.tryPeek(lexer.RightParen)
+	if !peek || err != nil {
+		return nil, err
+	}
+
+	peek, err = p.tryPeek(lexer.LeftBrace)
+	if !peek || err != nil {
+		return nil, err
+	}
+
+	whileExpr.Body, err = p.parseBlockStatement()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExpressionStatement{Expression: whileExpr}, nil
+}
+
+func (p *Parser) parseBlockStatement() (*BlockStatement, error) {
 
 	block := &BlockStatement{
 		Token: p.current,
@@ -734,7 +910,7 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 
 	err := p.nextToken()
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	for {
@@ -745,7 +921,7 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 
 		statement, err := p.parseStatement()
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
 		if statement != nil {
@@ -754,11 +930,11 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 
 		err = p.nextToken()
 		if err != nil {
-			return nil
+			return nil, err
 		}
 	}
 
-	return block
+	return block, nil
 }
 
 func (p *Parser) parseFunctionParameters() ([]*Identifier, error) {
@@ -812,17 +988,21 @@ func (p *Parser) parseFunctionLiteral() (Expression, error) {
 		Token: p.current,
 	}
 
-	peek, err := p.tryPeek(lexer.Identifier)
-	if !peek || err != nil {
-		return nil, err
+	// Named function: fn name(...)
+	// Anonymous function: fn(...)
+	if p.next.Type == lexer.Identifier {
+		err := p.nextToken()
+		if err != nil {
+			return nil, err
+		}
+
+		literal.Identifier = &Identifier{
+			Token: p.current,
+			Value: p.current.Source,
+		}
 	}
 
-	literal.Identifier = &Identifier{
-		Token: p.current,
-		Value: p.current.Source,
-	}
-
-	peek, err = p.tryPeek(lexer.LeftParen)
+	peek, err := p.tryPeek(lexer.LeftParen)
 	if !peek || err != nil {
 		return nil, err
 	}
@@ -837,7 +1017,10 @@ func (p *Parser) parseFunctionLiteral() (Expression, error) {
 		return nil, err
 	}
 
-	literal.Body = p.parseBlockStatement()
+	literal.Body, err = p.parseBlockStatement()
+	if err != nil {
+		return nil, err
+	}
 
 	return literal, nil
 }
@@ -859,7 +1042,7 @@ func (p *Parser) parseExpressionList(end lexer.TokenType) ([]Expression, error) 
 	}
 
 	exp, err := p.parseExpression(0)
-	if err != nil {
+	if exp == nil || err != nil {
 		return nil, err
 	}
 	list = append(list, exp)
@@ -877,7 +1060,7 @@ func (p *Parser) parseExpressionList(end lexer.TokenType) ([]Expression, error) 
 		}
 
 		exp, err := p.parseExpression(0)
-		if err != nil {
+		if exp == nil || err != nil {
 			return nil, err
 		}
 		list = append(list, exp)
@@ -921,9 +1104,9 @@ func (p *Parser) parseHashLiteral() (Expression, error) {
 	return literal, nil
 }
 
-func (p *Parser) parseHashPairs() (map[Expression]Expression, error) {
+func (p *Parser) parseHashPairs() ([]HashPair, error) {
 
-	pairs := make(map[Expression]Expression)
+	var pairs []HashPair
 
 	if p.next.Type == lexer.RightBrace {
 		err := p.nextToken()
@@ -942,7 +1125,7 @@ func (p *Parser) parseHashPairs() (map[Expression]Expression, error) {
 		}
 
 		key, err := p.parseString()
-		if err != nil {
+		if key == nil || err != nil {
 			return nil, err
 		}
 
@@ -959,11 +1142,11 @@ func (p *Parser) parseHashPairs() (map[Expression]Expression, error) {
 
 		// parse value
 		exp, err := p.parseExpression(0)
-		if err != nil {
+		if exp == nil || err != nil {
 			return nil, err
 		}
 
-		pairs[key] = exp
+		pairs = append(pairs, HashPair{Key: key, Value: exp})
 
 		if p.next.Type != lexer.Comma {
 			break
