@@ -461,6 +461,7 @@ type ExecutionContext struct {
 	steps        int
 	depth        int
 	output       *strings.Builder
+	templateMode bool
 }
 
 func NewExecutionContext(program *parser.Program) *ExecutionContext {
@@ -518,6 +519,8 @@ func (e *Evaluator) Evaluate(ctx *ExecutionContext) (Object, error) {
 
 func (e *Evaluator) EvaluateString(ctx *ExecutionContext) (string, error) {
 
+	ctx.templateMode = true
+
 	for _, statement := range ctx.Program.Statements {
 		evalResult, err := e.evaluateNode(ctx, statement, ctx.RootScope)
 		if err != nil {
@@ -527,13 +530,20 @@ func (e *Evaluator) EvaluateString(ctx *ExecutionContext) (string, error) {
 		if _, ok := evalResult.(*ReturnValue); ok {
 			return "", nil
 		}
-
-		if evalResult != nil && evalResult.Type() != NullObject && evalResult.Type() != ReturnValueObject && evalResult.Type() != FunctionObject && evalResult.Type() != BreakSignalObject && evalResult.Type() != ContinueSignalObject {
-			ctx.output.WriteString(evalResult.Debug())
-		}
 	}
 
 	return ctx.output.String(), nil
+}
+
+func shouldWriteTemplateOutput(obj Object) bool {
+	if obj == nil {
+		return false
+	}
+	switch obj.Type() {
+	case NullObject, ReturnValueObject, FunctionObject, BreakSignalObject, ContinueSignalObject:
+		return false
+	}
+	return true
 }
 
 func (e *Evaluator) evaluateNode(ctx *ExecutionContext, node Node, scope *Scope) (Object, error) {
@@ -556,7 +566,19 @@ func (e *Evaluator) evaluateNode(ctx *ExecutionContext, node Node, scope *Scope)
 	case *parser.ReturnStatement:
 		return e.evaluateReturnStatement(ctx, n, scope)
 	case *parser.ExpressionStatement:
-		return e.evaluateNode(ctx, n.Expression, scope)
+		result, err := e.evaluateNode(ctx, n.Expression, scope)
+		if err != nil {
+			return nil, err
+		}
+		if ctx.templateMode {
+			if _, ok := n.Expression.(*parser.AssignmentExpression); !ok {
+				if shouldWriteTemplateOutput(result) {
+					ctx.output.WriteString(result.Debug())
+				}
+			}
+			return Null, nil
+		}
+		return result, nil
 	case *parser.ForeachExpression:
 		return e.evaluateForEach(ctx, n, scope)
 	case *parser.IntegerLiteral:
@@ -785,7 +807,10 @@ func (e *Evaluator) evaluateBlockStatement(ctx *ExecutionContext, block *parser.
 }
 
 func (e *Evaluator) evaluateLetStatement(ctx *ExecutionContext, let *parser.LetStatement, scope *Scope) (Object, error) {
+	prevTM := ctx.templateMode
+	ctx.templateMode = false
 	val, err := e.evaluateNode(ctx, let.Value, scope)
+	ctx.templateMode = prevTM
 	if err != nil {
 		return nil, err
 	}
@@ -796,6 +821,10 @@ func (e *Evaluator) evaluateLetStatement(ctx *ExecutionContext, let *parser.LetS
 }
 
 func (e *Evaluator) evaluateAssignmentExpression(ctx *ExecutionContext, assign *parser.AssignmentExpression, scope *Scope) (Object, error) {
+
+	prevTM := ctx.templateMode
+	ctx.templateMode = false
+	defer func() { ctx.templateMode = prevTM }()
 
 	if ident, ok := assign.Left.(*parser.Identifier); ok {
 
@@ -885,7 +914,10 @@ func (e *Evaluator) evaluateAssignmentExpression(ctx *ExecutionContext, assign *
 }
 
 func (e *Evaluator) evaluateReturnStatement(ctx *ExecutionContext, ret *parser.ReturnStatement, scope *Scope) (Object, error) {
+	prevTM := ctx.templateMode
+	ctx.templateMode = false
 	val, err := e.evaluateNode(ctx, ret.Value, scope)
+	ctx.templateMode = prevTM
 	if err != nil {
 		return nil, err
 	}
@@ -1193,8 +1225,11 @@ func (e *Evaluator) applyFunction(ctx *ExecutionContext, scope *Scope, fn Object
 			defer func() { ctx.depth-- }()
 		}
 
+		prevTM := ctx.templateMode
+		ctx.templateMode = false
 		extendedScope := e.extendFunctionScope(f, args)
 		evaluated, err := e.evaluateNode(ctx, f.Body, extendedScope)
+		ctx.templateMode = prevTM
 		if err != nil {
 			return nil, err
 		}

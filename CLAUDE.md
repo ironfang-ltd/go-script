@@ -67,7 +67,7 @@ Tree-walking interpreter that executes AST nodes. Core concepts:
 - **Object interface** (`object.go`): All runtime values implement `Object` with `Type()` and `Debug()` methods. Value types: `StringValue`, `IntegerValue`, `BooleanValue`, `DecimalValue`, `DateTimeValue`, `ArrayValue`, `HashValue`, `FileValue`, `FunctionValue`, `NullValue`, `BuiltInFunction`.
 - **Scope** (`scope.go`): Lexical scoping with parent chain. `SetLocal()` sets in current scope; `Assign()` walks the chain to find an existing variable; `Get()` reads from current or parent scopes.
 - **ExecutionContext** (`evaluator.go`): Holds the parsed program, root scope, logger, metadata map, output buffer, source string, and security limits. Created via `NewExecutionContext(program)` or `NewExecutionContextWithScope(program, scope)`.
-- **Two evaluation modes**: `Evaluate(ctx)` returns the final `Object`; `EvaluateString(ctx)` returns accumulated template output as a string. Note: `EvaluateString` writes all non-null/non-function/non-signal expression results to output (including `let` statement values).
+- **Two evaluation modes**: `Evaluate(ctx)` returns the final `Object`; `EvaluateString(ctx)` returns accumulated template output as a string. `EvaluateString` sets `ctx.templateMode = true`, which causes `ExpressionStatement` nodes to auto-write their results to the output buffer at any nesting depth. `LetStatement`, `AssignmentExpression`, function bodies, and return values suppress `templateMode` to prevent value leakage. Template text is always written via `PrintStatement`.
 - **Property access**: Dot notation (`obj.name`) only works on `HashValue` — it converts to an index lookup (`obj["name"]`). `PropertyExpression` evaluation returns `(parent, index, value, error)` to support both reads and writes.
 - **Assignment**: Three forms — variable (`x = 5`), index (`arr[0] = val`), property (`obj.prop = val`). Variables must already exist via `let`; `Assign()` walks the scope chain to find them.
 - **String auto-coercion**: `"str" + 42` → `"str42"`. If `+` operator has one `*StringValue` side, the other is coerced via `.Debug()`.
@@ -112,9 +112,25 @@ All three expand tabs to 4 spaces for proper alignment in error displays. The pa
 
 To enable `RuntimeError` formatting, set `ctx.Source` to the original source string before evaluation.
 
+### Convenience Helpers (`helpers.go`)
+
+- **`Vars`** (`map[string]any`): Enables `evaluator.Vars{"name": "Alice", "age": 30}` for variable injection.
+- **`ToObject(v any) (Object, error)`**: Converts Go values to script Objects (nil→Null, string, bool, int variants, float variants, time.Time, `*time.Time`, `[]any`, `map[string]any`, Object passthrough).
+- **`(*Evaluator).RunScript(source, vars...)`** / **`(*Evaluator).RunTemplate(source, vars...)`**: One-call lex→parse→evaluate with vars and custom functions.
+- **`RunScript(source, vars...)`** / **`RunTemplate(source, vars...)`**: Package-level convenience (fresh evaluator, no custom functions).
+
 ### Typical Usage Flow
 
 ```go
+// Simple (using helpers):
+output, err := evaluator.RunTemplate(tmpl, evaluator.Vars{"name": "Alice"})
+
+// With custom functions:
+eval := evaluator.New()
+eval.RegisterFunction("myFunc", myFuncImpl)
+output, err := eval.RunTemplate(tmpl, evaluator.Vars{"name": "Alice"})
+
+// Low-level (full control):
 l := lexer.NewTemplate(templateString)
 p := parser.New(l)
 program, err := p.Parse()
