@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/ironfang-ltd/go-script/lexer"
@@ -70,6 +71,33 @@ func ToObject(v any) (Object, error) {
 		}
 		return hash, nil
 	default:
+		rv := reflect.ValueOf(v)
+		if rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
+			elements := make([]Object, rv.Len())
+			for i := range rv.Len() {
+				obj, err := ToObject(rv.Index(i).Interface())
+				if err != nil {
+					return nil, fmt.Errorf("element [%d]: %w", i, err)
+				}
+				elements[i] = obj
+			}
+			return &ArrayValue{Elements: elements}, nil
+		}
+		if rv.Kind() == reflect.Map && rv.Type().Key().Kind() == reflect.String {
+			hash := NewHashValue()
+			iter := rv.MapRange()
+			for iter.Next() {
+				k := iter.Key().String()
+				obj, err := ToObject(iter.Value().Interface())
+				if err != nil {
+					return nil, fmt.Errorf("key %q: %w", k, err)
+				}
+				if err := hash.Set(&StringValue{Value: k}, obj); err != nil {
+					return nil, err
+				}
+			}
+			return hash, nil
+		}
 		return nil, fmt.Errorf("unsupported type: %T", v)
 	}
 }

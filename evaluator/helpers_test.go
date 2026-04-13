@@ -198,6 +198,92 @@ func TestToObject_ObjectPassthrough(t *testing.T) {
 	}
 }
 
+func TestToObject_TypedSliceOfMaps(t *testing.T) {
+	input := []map[string]any{
+		{"name": "Alice", "age": 30},
+		{"name": "Bob", "age": 25},
+	}
+	obj, err := ToObject(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arr, ok := obj.(*ArrayValue)
+	if !ok {
+		t.Fatalf("expected *ArrayValue, got %T", obj)
+	}
+	if len(arr.Elements) != 2 {
+		t.Fatalf("expected 2 elements, got %d", len(arr.Elements))
+	}
+	hash, ok := arr.Elements[0].(*HashValue)
+	if !ok {
+		t.Fatalf("expected *HashValue, got %T", arr.Elements[0])
+	}
+	name, _ := hash.GetValue(&StringValue{Value: "name"})
+	if name.(*StringValue).Value != "Alice" {
+		t.Fatalf("expected 'Alice', got %q", name.(*StringValue).Value)
+	}
+}
+
+func TestToObject_TypedSliceOfStrings(t *testing.T) {
+	input := []string{"hello", "world"}
+	obj, err := ToObject(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arr, ok := obj.(*ArrayValue)
+	if !ok {
+		t.Fatalf("expected *ArrayValue, got %T", obj)
+	}
+	if len(arr.Elements) != 2 {
+		t.Fatalf("expected 2 elements, got %d", len(arr.Elements))
+	}
+	if arr.Elements[0].(*StringValue).Value != "hello" {
+		t.Fatalf("expected 'hello', got %q", arr.Elements[0].(*StringValue).Value)
+	}
+}
+
+func TestToObject_TypedSliceOfInts(t *testing.T) {
+	input := []int{1, 2, 3}
+	obj, err := ToObject(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arr, ok := obj.(*ArrayValue)
+	if !ok {
+		t.Fatalf("expected *ArrayValue, got %T", obj)
+	}
+	if len(arr.Elements) != 3 {
+		t.Fatalf("expected 3 elements, got %d", len(arr.Elements))
+	}
+	if arr.Elements[0].(*IntegerValue).Value != 1 {
+		t.Fatalf("expected 1, got %d", arr.Elements[0].(*IntegerValue).Value)
+	}
+}
+
+func TestToObject_TypedMapStringString(t *testing.T) {
+	input := map[string]string{"foo": "bar", "baz": "qux"}
+	obj, err := ToObject(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash, ok := obj.(*HashValue)
+	if !ok {
+		t.Fatalf("expected *HashValue, got %T", obj)
+	}
+	val, _ := hash.GetValue(&StringValue{Value: "foo"})
+	if val.(*StringValue).Value != "bar" {
+		t.Fatalf("expected 'bar', got %q", val.(*StringValue).Value)
+	}
+}
+
+func TestToObject_TypedSliceNestedError(t *testing.T) {
+	input := []struct{ X int }{{1}}
+	_, err := ToObject(input)
+	if err == nil {
+		t.Fatal("expected error for unsupported nested type in typed slice")
+	}
+}
+
 func TestToObject_UnsupportedType(t *testing.T) {
 	_, err := ToObject(struct{}{})
 	if err == nil {
